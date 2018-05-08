@@ -1,0 +1,214 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : PCI.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op;
+
+import java.io.IOException;
+
+import mujava.IMutantInfo;
+import mujava.MuJavaMutantInfo;
+import mujava.MutantManager;
+import mujava.MutantTable;
+import mujava.MutationSystem;
+import mujava.MuJavaProject;
+import mujava.ProjectManager;
+import org.eclipse.jdt.core.IJavaElement;
+import mujava.gen.GenericCodeWriter;
+import mujava.util.InheritanceINFO;
+import openjava.mop.FileEnvironment;
+import openjava.mop.OJClass;
+import openjava.ptree.AssignmentExpression;
+import openjava.ptree.ClassDeclaration;
+import openjava.ptree.CompilationUnit;
+import openjava.ptree.Expression;
+import openjava.ptree.ExpressionList;
+import openjava.ptree.FieldAccess;
+import openjava.ptree.FieldDeclaration;
+import openjava.ptree.MethodCall;
+import openjava.ptree.ParseTreeException;
+import openjava.ptree.TypeName;
+import openjava.ptree.Variable;
+import openjava.ptree.VariableDeclaration;
+
+/**
+ * <p>Description: </p>
+ * <p>Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED </p>
+ * @author Yu-Seung Ma
+ * @version 1.0
+ */
+
+public class PCI extends mujava.op.util.TypeCastMutator {
+	String beforeCastType = "";
+
+	boolean isNonEQ = false;
+
+	public PCI(MuJavaProject project, IJavaElement originalSourceFile, FileEnvironment file_env,
+			ClassDeclaration cdecl, CompilationUnit comp_unit) {
+		super(file_env, comp_unit, project, originalSourceFile, "PCI");
+	}
+
+	void generateUpMutant(Variable p, InheritanceINFO inf) {
+		if (inf.getParent() != null) {
+			String afterCastType = inf.getParent().getClassName();
+			if (afterCastType.equals(beforeCastType))
+				return;
+			if (hasHidingVariableOrOverridingMethod(beforeCastType,
+					afterCastType)) {
+				outputToFile(p, afterCastType);
+			}
+			generateUpMutant(p, inf.getParent());
+		}
+	}
+
+	// For method call
+	void generateUpMutant2(Variable p, InheritanceINFO inf, String method_name,
+			Class[] pars) {
+		if (inf.getParent() != null) {
+			String afterCastType = inf.getParent().getClassName();
+			if (afterCastType.equals(beforeCastType))
+				return;
+			if (isNonAbstractOverridingMethodCall(beforeCastType,
+					afterCastType, method_name, pars)) {
+				outputToFile(p, afterCastType);
+			}
+			generateUpMutant(p, inf.getParent());
+		}
+	}
+
+	void generateDownMutant(Variable p, InheritanceINFO inf) {
+		if (inf.getChilds().size() > 0) {
+			for (int i = 0; i < inf.getChilds().size(); i++) {
+				String afterCastType = ((InheritanceINFO) inf.getChilds()
+						.get(i)).getClassName();
+				if (afterCastType.equals(beforeCastType))
+					return;
+				if (hasHidingVariableOrOverridingMethod(beforeCastType,
+						afterCastType)) {
+					outputToFile(p, afterCastType);
+				}
+				generateDownMutant(p, (InheritanceINFO) inf.getChilds().get(i));
+			}
+		}
+	}
+
+	void generateDownMutant2(Variable p, InheritanceINFO inf,
+			String method_name, Class[] pars) {
+		if (inf.getChilds().size() > 0) {
+			for (int i = 0; i < inf.getChilds().size(); i++) {
+				String afterCastType = ((InheritanceINFO) inf.getChilds()
+						.get(i)).getClassName();
+				if (afterCastType.equals(beforeCastType))
+					return;
+				if (isNonAbstractOverridingMethodCall(beforeCastType,
+						afterCastType, method_name, pars)) {
+					outputToFile(p, afterCastType);
+				}
+				generateDownMutant(p, (InheritanceINFO) inf.getChilds().get(i));
+			}
+		}
+	}
+
+	// 언제 non-equivalent 한가..
+	// [1] assignment 의 오른쪽에 있을때만
+	// [2] method call에서만..
+
+	public void visit(AssignmentExpression p) throws ParseTreeException {
+		Expression left = p.getLeft();
+		if (!(left instanceof FieldAccess)) {
+			super.visit(p);
+			return;
+		}
+		FieldAccess fldac = (FieldAccess) left;
+		Expression refexpr = fldac.getReferenceExpr();
+		TypeName reftype = fldac.getReferenceType();
+		Expression value = p.getRight();
+		/* custom version of  visit() skipping the field */
+		Expression newp;
+		newp = this.evaluateDown(p);
+		if (newp != p) {
+			p.replace(newp);
+			newp.accept(this);
+			return;
+		}
+
+		if (refexpr != null) {
+			refexpr.accept(this);
+		} else if (reftype != null) {
+			reftype.accept(this);
+		}
+		isNonEQ = true;
+		value.accept(this);
+		isNonEQ = false;
+
+		newp = this.evaluateUp(p);
+		if (newp != p)
+			p.replace(newp);
+	}
+
+	public void visit(Variable p) throws ParseTreeException {
+		if (isNonEQ) {
+			OJClass c = getType(p);
+			InheritanceINFO inf = MutationSystem
+					.getInheritanceInfo(c.getName());
+			if (inf == null)
+				return;
+			beforeCastType = (getType(p)).getName();
+			if (currentMethodCall == null) {
+				generateUpMutant(p, inf);
+				generateDownMutant(p, inf);
+			} else {
+				try {
+					String method_name = currentMethodCall.getName();
+					Class[] par_type = getParameterTypes(currentMethodCall);
+					generateUpMutant2(p, inf, method_name, par_type);
+					generateDownMutant2(p, inf, method_name, par_type);
+				} catch (Exception e) {
+				}
+			}
+		}
+	}
+
+	public void visit(MethodCall p) throws ParseTreeException {
+		Expression newp = this.evaluateDown(p);
+		if (newp != p) {
+			p.replace(newp);
+			return;
+		}
+		isNonEQ = true;
+		Expression ref = p.getReferenceExpr();
+		String method_name = p.getName();
+		if (ref != null) {
+			currentMethodCall = p;
+			ref.accept(this);
+			currentMethodCall = null;
+		}
+		isNonEQ = false;
+		ExpressionList list = p.getArguments();
+		if (list != null)
+			list.accept(this);
+	}
+
+	
+
+	@Override
+	protected int getMutantType() {
+		return IMutantInfo.CLASS;
+	}
+
+	@Override
+	protected GenericCodeWriter getMutantCodeWriter(IMutantInfo mutantFile,
+			Object[] args) throws IOException {
+		if (args.length == 2 && args[0] instanceof Variable
+				&& args[1] instanceof String) {
+			PCI_Writer mutantWriter = new PCI_Writer(mutantFile);
+			mutantWriter.setMutant((Variable) args[0], (String) args[1]);
+
+			return mutantWriter;
+		}
+		assert (false);
+		return null;
+	}
+}

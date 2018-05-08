@@ -1,0 +1,213 @@
+package mujava;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+import mujava.gen.GenerationType;
+import mujava.gen.seeker.AbstractChangePointSeeker;
+import mujava.gen.writer.MutantWriter;
+
+public abstract class MutantOperator {
+
+	public static final int ALL = 0x00;
+	public static final int TRADITIONAL = 0x01;
+	public static final int CLASSICAL = 0x02;
+
+	public static final int GEN_NORMAL = 0x10;
+	public static final int GEN_MSG = 0x20;
+	public static final int GEN_NUJAVA = 0x40;
+	public static final int GEN_EXP_REACH = 0x80;
+	public static final int GEN_STATE = 0x11;
+
+	public static final String CLASSICAL_LITERAL = "CL";
+	public static final String TRADITIONAL_LITERAL = "TR";
+
+	public static List<MutantOperator> cList = new ArrayList<MutantOperator>();
+	public static List<MutantOperator> tList = new ArrayList<MutantOperator>();
+
+	/** List of names of class mutation operatoars */
+	private static String[] cm_operators = { "AMC", "IHI", "IHD", "IOD", "IOP",
+			"IOR", "ISK", "IPC", // 8��
+			"PNC", "PMD", "PPD", "PRV", // 4��
+			"OMR", "OMD", "OAN", "OAO", // 4��
+			"JTD", "JSC", "JID", "JDC", // 4��
+			"EOA", "EOC", "EAM", "EMM" }; // 4�� - �� 24
+
+	/** List of names of traditional mutation operatoars */
+	private static String[] tm_operators = { "AORB", "AORS", "AOIU", "AOIS",
+			"AODU", "AODS", "ROR", "COR", "COD", "COI", "BOR", "BOI",
+			"BOD", "ASRS" }; // 14
+
+	public static List<String> getListClassicalOperators(
+			GenerationType generationWay) {
+		readAllMutantOperators();
+
+		List<String> list = new ArrayList<String>();
+		for (MutantOperator op : cList) {
+			switch (generationWay) {
+			case WS:
+				if ((op.value & MutantOperator.GEN_NUJAVA) == MutantOperator.GEN_NUJAVA)
+					list.add(op.getMutantOperatorName());
+				break;
+			case SC:
+				if ((op.value & MutantOperator.GEN_NORMAL) == MutantOperator.GEN_NORMAL)
+					list.add(op.getMutantOperatorName());
+				break;
+			case SCC:
+				if ((op.value & MutantOperator.GEN_STATE) == MutantOperator.GEN_STATE)
+					list.add(op.getMutantOperatorName());
+				break;	
+			case MSG:
+				if ((op.value & MutantOperator.GEN_MSG) == MutantOperator.GEN_MSG)
+					list.add(op.getMutantOperatorName());
+				break;
+			case REACH:
+				if ((op.value & MutantOperator.GEN_EXP_REACH) == MutantOperator.GEN_EXP_REACH)
+					list.add(op.getMutantOperatorName());
+				break;
+			}
+		}
+
+		return list;
+	}
+
+	public static List<String> getAllClassicalOperators() {
+		readAllMutantOperators();
+
+		List<String> list = new ArrayList<String>();
+		for (MutantOperator op : cList) {
+			list.add(op.getMutantOperatorName());
+		}
+
+		return list;
+	}
+
+	/**
+	 * Never return null.
+	 * 
+	 * @return
+	 */
+	public static List<String> getListTraditionalOperators(
+			GenerationType generationWay) {
+		readAllMutantOperators();
+
+		List<String> list = new ArrayList<String>();
+		for (MutantOperator op : tList) {
+			switch (generationWay) {
+			case WS:
+				if ((op.value & MutantOperator.GEN_NUJAVA) == MutantOperator.GEN_NUJAVA)
+					list.add(op.getMutantOperatorName());
+				break;
+			case SC:
+				if ((op.value & MutantOperator.GEN_NORMAL) == MutantOperator.GEN_NORMAL)
+					list.add(op.getMutantOperatorName());
+				break;
+			case MSG:
+				if ((op.value & MutantOperator.GEN_MSG) == MutantOperator.GEN_MSG)
+					list.add(op.getMutantOperatorName());
+				break;
+			case REACH:
+				if ((op.value & MutantOperator.GEN_EXP_REACH) == MutantOperator.GEN_EXP_REACH)
+					list.add(op.getMutantOperatorName());
+				break;
+			case SCC:
+				if ((op.value & MutantOperator.GEN_STATE) == MutantOperator.GEN_STATE)
+					list.add(op.getMutantOperatorName());
+				break;	
+			}
+		}
+
+		Collections.sort(list);
+
+		return list;
+	}
+
+	public static List<String> getAllTraditionalOperators() {
+		readAllMutantOperators();
+
+		List<String> list = new ArrayList<String>();
+		for (MutantOperator op : tList) {
+			list.add(op.getMutantOperatorName());
+		}
+
+		Collections.sort(list);
+
+		return list;
+	}
+
+	public static MutantOperator getMutantOperator(String op) {
+		readAllMutantOperators();
+
+		for (MutantOperator mop : tList) {
+			if (mop.getMutantOperatorName().equals(op))
+				return mop;
+		}
+		for (MutantOperator mop : cList) {
+			if (mop.getMutantOperatorName().equals(op))
+				return mop;
+		}
+
+		return null;
+	}
+
+	private static void readAllMutantOperators() {
+		if (tList.isEmpty()) {
+			String pName = "mujava.op.traditional";
+			for (String name : tm_operators) {
+				try {
+					Class<?> clz = Class.forName(pName + "." + name);
+					Object obj = clz.newInstance();
+					if (obj instanceof MutantOperator)
+						tList.add((MutantOperator) obj);
+				} catch (ClassNotFoundException e) {
+				} catch (InstantiationException e) {
+					e.printStackTrace();
+				} catch (IllegalAccessException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+
+		if (cList.isEmpty()) {
+			String pName = "mujava.op.classical";
+			for (String name : cm_operators) {
+				try {
+					Class<?> clz = Class.forName(pName + "." + name);
+					Object obj = clz.newInstance();
+					if (obj instanceof MutantOperator)
+						cList.add((MutantOperator) obj);
+				} catch (ClassNotFoundException e) {
+				} catch (InstantiationException e) {
+					e.printStackTrace();
+				} catch (IllegalAccessException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+
+	protected String name;
+
+	int value = ALL;
+
+	protected MutantOperator(int i) {
+		this.value = i;
+	}
+
+	public abstract MutantWriter getMutantCodeWriter(
+			AbstractChangePointSeeker mutator, int mode) throws IOException;
+
+	private String getMutantOperatorName() {
+		return name;
+	}
+
+	public boolean isClassical() {
+		return ((value & CLASSICAL) == CLASSICAL);
+	}
+
+	public boolean isTraditional() {
+		return ((value & TRADITIONAL) == TRADITIONAL);
+	}
+}

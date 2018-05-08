@@ -1,0 +1,118 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : IHD.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op;
+
+import java.io.IOException;
+
+import mujava.IMutantInfo;
+import mujava.MutantManager;
+import mujava.MutantTable;
+import mujava.MuJavaProject;
+import mujava.ProjectManager;
+import org.eclipse.jdt.core.IJavaElement;
+import mujava.gen.GenericCodeWriter;
+import mujava.op.util.DeclAnalyzer;
+import openjava.mop.Environment;
+import openjava.mop.OJField;
+import openjava.ptree.CompilationUnit;
+import openjava.ptree.FieldDeclaration;
+import openjava.ptree.ParseTreeException;
+
+/**
+ * <p>Description: Generate IHD mutants </p>
+ * <p>Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED </p>
+ * @author Yu-Seung Ma
+ * @version 1.0
+ */
+
+public class IHD extends DeclAnalyzer {
+	Environment file_env = null;
+
+	/** number of IHD mutant for a target class*/
+	private int total = 0;
+
+	/** return number of IHD mutant for a target class */
+	public int getTotal() {
+		return total;
+	}
+
+	/** Generate IHD mutant <br>
+	 *  <i> When to generate</i>: if declared fields have the same name and type with the inherited fields*/
+	public void translateDefinition(CompilationUnit comp_unit)
+			throws openjava.mop.MOPException {
+		super.setTargetClass(comp_unit);
+		
+		OJField[] d_fields = getDeclaredFields();
+		OJField[] i_fields = getInheritedFields();
+		if ((d_fields.length == 0) || (i_fields.length == 0))
+			return;
+
+		for (int i = 0; i < d_fields.length; i++) {
+			// private fields do not have have no effect although they are hidden.
+			if (d_fields[i].getModifiers().isPrivate())
+				continue;
+			for (int j = 0; j < i_fields.length; j++) {
+				if (equalFieldByNameAndType(d_fields[i], i_fields[j])) {
+					// examine equivalency
+					if ((d_fields[i].getModifiers().isPublic())
+							|| (!isEquivalent(comp_unit, d_fields[i]))) {
+						FieldDeclaration original = d_fields[i].getSourceCode();
+						FieldDeclaration mutant;
+						mutant = (FieldDeclaration) original
+								.makeRecursiveCopy();
+						outputToFile(original, mutant);
+						total++;
+					}
+					break;
+				}
+			}
+		}
+	}
+
+	private boolean isEquivalent(CompilationUnit comp_unit, OJField f) {
+		IHD_IHI_EqAnalyzer engine = new IHD_IHI_EqAnalyzer(super.getMujavaProject() ,super
+				.getOriginalSourceFile(), file_env,  comp_unit, f.getName());
+		try {
+			comp_unit.accept(engine);
+		} catch (ParseTreeException e) {
+		}
+		if (engine.isEquivalent())
+			return true;
+		else
+			return false;
+	}
+
+	public IHD(MuJavaProject project, IJavaElement originalSourceFile,
+			openjava.mop.Environment oj_param0, openjava.mop.OJClass oj_param1,
+			openjava.ptree.ClassDeclaration oj_param2) {
+		super(oj_param0, oj_param1, oj_param2, project, originalSourceFile, "IHD");
+		file_env = oj_param0;
+	}
+
+	//    public IHD( java.lang.Class oj_param0, openjava.mop.MetaInfo oj_param1 )
+	//    {
+	//        super( oj_param0, oj_param1 );
+	//    }
+	@Override
+	protected int getMutantType() {
+		return IMutantInfo.CLASS;
+	}
+
+	@Override
+	protected GenericCodeWriter getMutantCodeWriter(IMutantInfo mutantFile,
+			Object[] args) throws IOException {
+		if (args.length == 2 && args[0] instanceof FieldDeclaration
+				&& args[1] instanceof FieldDeclaration) {
+			IHD_Writer mutantWriter = new IHD_Writer(mutantFile);
+			mutantWriter.setMutant((FieldDeclaration) args[0],
+					(FieldDeclaration) args[1]);
+			return mutantWriter;
+		}
+		assert (false);
+		return null;
+	}
+}

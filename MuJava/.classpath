@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="con" path="org.eclipse.pde.core.requiredPlugins"/>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="src" path="original_openjava_src"/>
+	<classpathentry kind="lib" path="lib/dom4j-1.6.1.jar"/>
+	<classpathentry kind="lib" path="lib/log4j-1.2.15.jar"/>
+	<classpathentry kind="lib" path="lib/poi-3.8-beta4-20110826.jar"/>
+	<classpathentry kind="lib" path="lib/poi-ooxml-3.8-beta4-20110826.jar"/>
+	<classpathentry kind="lib" path="lib/poi-ooxml-schemas-3.8-beta4-20110826.jar"/>
+	<classpathentry kind="lib" path="lib/reach.jar"/>
+	<classpathentry kind="lib" path="lib/commons-io-2.4.jar"/>
+	<classpathentry kind="lib" path="lib/commons-lang3-3.3.1.jar"/>
+	<classpathentry kind="lib" path="lib/geronimo-stax-api_1.0_spec-1.0.jar"/>
+	<classpathentry kind="lib" path="lib/JUnit3Executor.jar"/>
+	<classpathentry kind="lib" path="lib/JUnit4Executor.jar"/>
+	<classpathentry kind="lib" path="lib/ms.jar"/>
+	<classpathentry kind="lib" path="lib/msg.jar"/>
+	<classpathentry kind="lib" path="lib/mugamma.jar"/>
+	<classpathentry kind="lib" path="lib/mujavaLogger.jar"/>
+	<classpathentry kind="lib" path="lib/nujava.jar"/>
+	<classpathentry kind="lib" path="lib/original.jar"/>
+	<classpathentry kind="lib" path="lib/sqlite4java.jar"/>
+	<classpathentry kind="lib" path="lib/TestcaseExecutor.jar"/>
+	<classpathentry kind="lib" path="lib/WeakMutationExecutor.jar"/>
+	<classpathentry kind="lib" path="lib/xmlbeans-2.3.0.jar"/>
+	<classpathentry kind="lib" path="lib/xpp3_min-1.1.4c.jar"/>
+	<classpathentry kind="lib" path="lib/xstream-1.3.jar"/>
+	<classpathentry kind="lib" path="lib/interstate.jar"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.junit.JUNIT_CONTAINER/4"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>

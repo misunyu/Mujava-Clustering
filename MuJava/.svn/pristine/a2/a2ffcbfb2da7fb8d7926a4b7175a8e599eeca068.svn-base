@@ -1,0 +1,146 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : JTI.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op;
+
+import java.io.IOException;
+import java.util.Vector;
+
+import mujava.IMutantInfo;
+import mujava.MutantManager;
+import mujava.MutantTable;
+import mujava.MuJavaProject;
+import mujava.ProjectManager;
+import org.eclipse.jdt.core.IJavaElement;
+import mujava.gen.GenericCodeWriter;
+import openjava.mop.FileEnvironment;
+import openjava.ptree.AssignmentExpression;
+import openjava.ptree.CastExpression;
+import openjava.ptree.ClassDeclaration;
+import openjava.ptree.CompilationUnit;
+import openjava.ptree.ConstructorDeclaration;
+import openjava.ptree.Expression;
+import openjava.ptree.FieldAccess;
+import openjava.ptree.FieldDeclaration;
+import openjava.ptree.MethodCall;
+import openjava.ptree.MethodDeclaration;
+import openjava.ptree.Parameter;
+import openjava.ptree.ParameterList;
+import openjava.ptree.ParseTreeException;
+import openjava.ptree.SelfAccess;
+import openjava.ptree.Variable;
+
+/**
+ * <p>Description: </p>
+ * <p>Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED </p>
+ * @author Yu-Seung Ma
+ * @version 1.0
+ */
+
+public class JTI extends mujava.op.util.Mutator {
+
+	Vector instanceVar = new Vector();
+
+	Vector localVar = new Vector();
+
+	boolean isJTITarget = false;
+
+	public JTI(MuJavaProject project, IJavaElement originalSourceFile, FileEnvironment file_env,
+			ClassDeclaration cdecl, CompilationUnit comp_unit) {
+		super(file_env, comp_unit, project, originalSourceFile, "JTI");
+	}
+
+	boolean isTarget(Parameter p) throws ParseTreeException {
+		for (int i = 0; i < instanceVar.size(); i++) {
+			String field_name = instanceVar.get(i).toString();
+			if (field_name.equals(p.getVariable())) {
+				localVar.add(p.getVariable());
+				return true;
+			}
+		}
+		return false;
+	}
+
+	public void visit(FieldDeclaration p) throws ParseTreeException {
+		instanceVar.add(p.getName());
+	}
+
+	public void visit(AssignmentExpression p) throws ParseTreeException {
+		Expression newp = this.evaluateDown(p);
+		if (newp != p) {
+			p.replace(newp);
+			return;
+		}
+		p.childrenAccept(this);
+		newp = this.evaluateUp(p);
+		if (newp != p)
+			p.replace(newp);
+	}
+
+	public void visit(ConstructorDeclaration p) throws ParseTreeException {
+		ParameterList plist = p.getParameters();
+		localVar.removeAllElements();
+		for (int i = 0; i < plist.size(); i++) {
+			if (isTarget(plist.get(i))) {
+				isJTITarget = true;
+			}
+		}
+		if (isJTITarget) {
+			super.visit(p);
+		}
+		isJTITarget = false;
+	}
+
+	public void visit(MethodDeclaration p) throws ParseTreeException {
+		ParameterList plist = p.getParameters();
+		localVar.removeAllElements();
+		for (int i = 0; i < plist.size(); i++) {
+			if (isTarget(plist.get(i))) {
+				isJTITarget = true;
+			}
+		}
+		if (isJTITarget) {
+			super.visit(p);
+		}
+		isJTITarget = false;
+	}
+
+	public void visit(FieldAccess p) throws ParseTreeException {
+		Expression ref_exp = p.getReferenceExpr();
+		if (ref_exp instanceof SelfAccess) {
+			return;
+		} else {
+			super.visit(p);
+		}
+	}
+
+	public void visit(Variable p) throws ParseTreeException {
+		for (int i = 0; i < localVar.size(); i++) {
+			if (p.toString().equals(localVar.get(i).toString())) {
+				outputToFile(p);
+			}
+		}
+	}
+
+	@Override
+	protected int getMutantType() {
+		return IMutantInfo.CLASS;
+	}
+
+	@Override
+	protected GenericCodeWriter getMutantCodeWriter(IMutantInfo mutantFile,
+			Object[] args) throws IOException {
+		if (args.length == 1 && args[0] instanceof Variable) {
+			JTI_Writer mutantWriter = new JTI_Writer(mutantFile);
+			mutantWriter.setMutant((Variable) args[0]);
+
+			return mutantWriter;
+		}
+
+		assert (false);
+		return null;
+	}
+}

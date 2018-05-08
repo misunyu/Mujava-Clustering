@@ -1,0 +1,57 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : JTI_Writer.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op;
+
+import java.io.IOException;
+
+import mujava.IMutantInfo;
+import mugamma.MutantCodeWriter;
+import openjava.ptree.ParseTree;
+import openjava.ptree.ParseTreeException;
+import openjava.ptree.Variable;
+
+
+/**
+ * <p>Description: </p>
+ * <p>Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED </p>
+ * @author Yu-Seung Ma
+ * @version 1.0
+  */ 
+
+public class JTI_Writer  extends MutantCodeWriter{
+
+    Variable target = null;
+
+    public void setMutant(Variable f){
+      target = f;
+    }
+
+    public JTI_Writer(IMutantInfo mutantFile) throws IOException {
+		super(mutantFile);
+	}
+
+    boolean eq(ParseTree p, ParseTree q ) {
+		if(p == null && q == null)  return true;
+		if(p == null || q == null)  return false;
+		return (p.getObjectID() == q.getObjectID());
+    	}
+
+    public void visit( Variable p )
+	throws ParseTreeException
+    {
+      if(eq(p, target)){
+        out.print("this."+p.toString());
+         // -------------------------------------------------------------
+        super.mutantInfo.setChangeLocation(getLineNumber());
+        super.mutantInfo.setChangeLog(removeNewline(p.toString()+"  -->  this." + p.toString()));
+        // -------------------------------------------------------------
+
+      }else{
+        super.visit(p);
+      }
+    }
+}

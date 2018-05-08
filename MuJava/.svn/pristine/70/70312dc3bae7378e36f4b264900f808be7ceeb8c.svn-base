@@ -1,0 +1,77 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : EHD.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op.exception;
+
+import java.io.IOException;
+
+import mujava.IMutantInfo;
+import mujava.MutantManager;
+import mujava.MutantTable;
+import mujava.MuJavaProject;
+import mujava.ProjectManager;
+import org.eclipse.jdt.core.IJavaElement;
+import mujava.gen.GenericCodeWriter;
+import mujava.op.basic.AODS_Writer;
+import openjava.mop.FileEnvironment;
+import openjava.ptree.CatchBlock;
+import openjava.ptree.CatchList;
+import openjava.ptree.ClassDeclaration;
+import openjava.ptree.CompilationUnit;
+import openjava.ptree.ParseTreeException;
+import openjava.ptree.StatementList;
+import openjava.ptree.TryStatement;
+import openjava.ptree.UnaryExpression;
+
+/**
+ * <p>Description: </p>
+ * <p>Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED </p>
+ * @author Yu-Seung Ma
+ * @version 1.0
+ */
+
+public class EHD extends mujava.op.util.Mutator {
+	public EHD(IJavaElement originalSourceFile, FileEnvironment file_env,
+			ClassDeclaration cdecl, CompilationUnit comp_unit) {
+		super(file_env, comp_unit, null, originalSourceFile, "EHD");
+	}
+
+	public void visit(TryStatement p) throws ParseTreeException {
+		CatchList catchlist = p.getCatchList();
+		if (!catchlist.isEmpty()) {
+			int num = catchlist.size();
+			if (num == 1) {
+				StatementList finstmts = p.getFinallyBody();
+				if (!finstmts.isEmpty()) {
+					outputToFile(catchlist.get(0));
+				}
+			} else {
+				for (int i = 0; i < num; i++) {
+					outputToFile(catchlist.get(i));
+				}
+
+			}
+		}
+	}
+	
+
+	@Override
+	protected int getMutantType() {
+		return IMutantInfo.EXCEPTIONAL;
+	}
+	@Override
+	protected GenericCodeWriter getMutantCodeWriter(IMutantInfo mutantFile, Object[] args) throws IOException {
+		if(args.length == 1 && args[0] instanceof CatchBlock) {
+			EHD_Writer mutantWriter = new EHD_Writer(mutantFile);
+			mutantWriter.setMutant((CatchBlock) args[0]);
+			
+			return  mutantWriter;
+		}
+		
+		assert(false);
+		return null;
+	}
+}

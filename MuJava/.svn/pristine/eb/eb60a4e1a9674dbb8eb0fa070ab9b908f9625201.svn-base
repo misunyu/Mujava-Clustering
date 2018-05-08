@@ -1,0 +1,54 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : ETD.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op.exception;
+
+import java.io.IOException;
+
+import mujava.IMutantInfo;
+import mujava.MutantManager;
+import mujava.MutantTable;
+import mujava.MuJavaProject;
+import mujava.ProjectManager;
+import org.eclipse.jdt.core.IJavaElement;
+import mujava.gen.GenericCodeWriter;
+import openjava.mop.FileEnvironment;
+import openjava.ptree.ClassDeclaration;
+import openjava.ptree.CompilationUnit;
+import openjava.ptree.ParseTreeException;
+import openjava.ptree.ThrowStatement;
+
+/**
+ * <p>Description: </p>
+ * <p>Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED </p>
+ * @author Yu-Seung Ma
+ * @version 1.0
+ */
+
+public class ETD extends mujava.op.util.Mutator {
+	public ETD(IJavaElement originalSourceFile, FileEnvironment file_env,
+			ClassDeclaration cdecl, CompilationUnit comp_unit) {
+		super(file_env, comp_unit, null, originalSourceFile, "ETD");
+	}
+
+	public void visit(ThrowStatement p) throws ParseTreeException {
+		outputToFile(p);
+	}
+
+	@Override
+	protected int getMutantType() {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
+	@Override
+	protected GenericCodeWriter getMutantCodeWriter(IMutantInfo mutantFile,
+			Object[] args) throws IOException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+}

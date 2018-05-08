@@ -1,0 +1,119 @@
+package mujava.op;
+
+////////////////////////////////////////////////////////////////////////////
+// Module : IOD.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+import java.io.IOException;
+
+import mujava.IMutantInfo;
+import mujava.MutantManager;
+import mujava.MutantTable;
+import mujava.MuJavaProject;
+import mujava.ProjectManager;
+import org.eclipse.jdt.core.IJavaElement;
+import mujava.gen.GenericCodeWriter;
+import mujava.op.util.DeclAnalyzer;
+import openjava.mop.OJClass;
+import openjava.mop.OJMethod;
+import openjava.ptree.CompilationUnit;
+import openjava.ptree.FieldDeclaration;
+import openjava.ptree.MethodDeclaration;
+import openjava.ptree.ParseTreeException;
+
+/**
+ * <p>
+ * Description: Generate IOD mutants
+ * </p>
+ * <p>
+ * Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED
+ * </p>
+ * 
+ * @author Yu-Seung Ma
+ * @version 1.0
+ */
+
+public class IOD extends DeclAnalyzer {
+	
+	public void translateDefinition(CompilationUnit comp_unit)
+			throws openjava.mop.MOPException {
+		generate(comp_unit, this);
+		super.setTargetClass(comp_unit);
+	}
+
+	public void generate(CompilationUnit comp_unit, OJClass clazz)
+			throws openjava.mop.MOPException {
+		OJMethod[] d_methods = clazz.getDeclaredMethods();
+		OJMethod[] i_methods = clazz.getInheritedMethods();
+		if (d_methods.length == 0)
+			return;
+
+		for (int i = 0; i < d_methods.length; ++i) {
+			// private or final method do not have any hiding side-effect
+			if (d_methods[i].getModifiers().isPrivate())
+				continue;
+			if (d_methods[i].getModifiers().isFinal())
+				continue;
+
+			for (int j = 0; j < i_methods.length; j++) {
+				if (isSameNameAndSignature(d_methods[i], i_methods[j])) {
+					MethodDeclaration original = d_methods[i].getSourceCode();
+					outputToFile(original);
+					break;
+				}
+			}
+		}
+
+		OJClass[] inner_clazz = clazz.getAllClasses();
+		for (int i = 0; i < inner_clazz.length; i++) {
+			// OpenJava did not handle inner class..
+			// Therefore, below method do not work properly.
+			generate(comp_unit, inner_clazz[i]);
+		}
+	}
+
+	boolean isSameNameAndSignature(OJMethod m1, OJMethod m2) {
+		if (!m1.getName().equals(m2.getName()))
+			return false;
+		if (!m1.getReturnType().getName().equals(m1.getReturnType().getName()))
+			return false;
+		if (!m1.getModifiers().toString().equals(m2.getModifiers().toString()))
+			return false;
+		OJClass[] p1 = m1.getParameterTypes();
+		OJClass[] p2 = m2.getParameterTypes();
+		if (p1.length == 0 && p2.length == 0)
+			return true;
+		if (p1.length != p2.length)
+			return false;
+		for (int i = 0; i < p1.length; i++) {
+			if (!p1[i].getName().equals(p2[i].getName()))
+				return false;
+		}
+		return true;
+	}
+
+	public IOD(MuJavaProject project, IJavaElement originalSourceFile,
+			openjava.mop.Environment oj_param0, openjava.mop.OJClass oj_param1,
+			openjava.ptree.ClassDeclaration oj_param2) {
+		super(oj_param0, oj_param1, oj_param2, project, originalSourceFile, "IOD");
+	}
+
+	@Override
+	protected int getMutantType() {
+		return IMutantInfo.CLASS;
+	}
+
+	@Override
+	protected GenericCodeWriter getMutantCodeWriter(IMutantInfo mutantFile,
+			Object[] args) throws IOException {
+		if (args.length == 1 && args[0] instanceof MethodDeclaration) {
+			IOD_Writer mutantWriter = new IOD_Writer(mutantFile);
+			mutantWriter.setMutant((MethodDeclaration) args[0]);
+			return mutantWriter;
+		}
+		assert (false);
+		return null;
+	}
+}

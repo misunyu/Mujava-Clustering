@@ -1,0 +1,249 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : IOR_Writer.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op;
+
+import java.io.IOException;
+
+import mujava.IMutantInfo;
+import mujava.MuJavaMutantInfo;
+import mujava.op.util.ScopeHandlingMutantCodeWriter;
+import openjava.mop.Environment;
+import openjava.mop.OJClass;
+import openjava.ptree.ArrayAccess;
+import openjava.ptree.Expression;
+import openjava.ptree.ExpressionList;
+import openjava.ptree.FieldAccess;
+import openjava.ptree.Leaf;
+import openjava.ptree.MethodCall;
+import openjava.ptree.MethodDeclaration;
+import openjava.ptree.ModifierList;
+import openjava.ptree.ParameterList;
+import openjava.ptree.ParseTreeException;
+import openjava.ptree.StatementList;
+import openjava.ptree.TypeName;
+import openjava.ptree.Variable;
+
+/**
+ * <p>
+ * Description:
+ * </p>
+ * <p>
+ * Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED
+ * </p>
+ * 
+ * @author Yu-Seung Ma
+ * @version 1.0
+ */
+
+public class IOR_Writer extends ScopeHandlingMutantCodeWriter {
+	String target_name = null;
+
+	TypeName target_return_type = null;
+
+	ParameterList target_parList = null;
+
+	public void setMutant(MethodDeclaration mutant) {
+		this.target_name = mutant.getName();
+		this.target_return_type = mutant.getReturnType();
+		this.target_parList = mutant.getParameters();
+	}
+
+	public IOR_Writer(Environment base_env, IMutantInfo file) throws IOException {
+		super(base_env, file);
+	}
+
+	boolean isMutantCall(MethodCall p) {
+		Expression arg_val;
+		OJClass type = null;
+		String binded_type;
+
+		if (!(p.getName().equals(this.target_name)))
+			return false;
+
+		try {
+			Expression lexp = p.getReferenceExpr();
+			if (lexp != null) {
+				binded_type = getType(lexp).getName();
+				if (!binded_type.equals(((MuJavaMutantInfo)super.mutantInfo).getWrapperClass()))
+					return false;
+			}
+
+			/*
+			 * if( lexp instanceof Variable){ binded_type =
+			 * (clazz.bindedType(lexp.toString())).getName();
+			 * if(!binded_type.equals(class_name)) return false; }
+			 * 
+			 * if( lexp instanceof FieldAccess){ try{ binded_type =
+			 * (((FieldAccess)lexp).getType(clazz.getEnvironment())).toString();
+			 * if(!binded_type.equals(class_name)) return false;
+			 * }catch(Exception e){ return false; } }
+			 * 
+			 * if(lexp!=null && lexp instanceof SelfAccess &&
+			 * ((SelfAccess)lexp).getAccessType()==SelfAccess.SUPER ) return
+			 * false;
+			 */
+			// Compare Arguments...
+			ExpressionList args = p.getArguments();
+			if (args.size() != target_parList.size())
+				return false;
+			for (int i = 0; i < args.size(); i++) {
+				arg_val = args.get(i);
+				type = getType(arg_val);
+				if (!type.getName().equals(
+						target_parList.get(i).getTypeSpecifier().getName()))
+					return false;
+			}
+		} catch (Exception e) {
+			System.err.println("IOR: " + e);
+			return false;
+		}
+		return true;
+	}
+
+	public void visit(MethodCall p) throws ParseTreeException {
+		if (!isMutantCall(p)) {
+			super.visit(p);
+		} else {
+			Expression expr = p.getReferenceExpr();
+			TypeName reftype = p.getReferenceType();
+
+			if (expr != null) {
+
+				if (expr instanceof Leaf || expr instanceof ArrayAccess
+						|| expr instanceof FieldAccess
+						|| expr instanceof MethodCall
+						|| expr instanceof Variable) {
+					expr.accept(this);
+				} else {
+					writeParenthesis(expr);
+				}
+				out.print(".");
+			} else if (reftype != null) {
+
+				reftype.accept(this);
+				out.print(".");
+			}
+
+			String name = p.getName() + "_";
+			out.print(name);
+
+			ExpressionList args = p.getArguments();
+			writeArguments(args);
+		}
+	}
+
+	boolean isTarget(MethodDeclaration m) {
+		if (!(target_name.equals(m.getName())))
+			return false;
+		if (!(target_return_type.getName().equals(m.getReturnType().getName())))
+			return false;
+		ParameterList my_parList = m.getParameters();
+		if ((target_parList == null) || (my_parList == null))
+			return false;
+		int p1_num = target_parList.size();
+		int p2_num = my_parList.size();
+		if (p1_num != p2_num)
+			return false;
+		for (int i = 0; i < p1_num; i++) {
+			if (!(target_parList.get(i).getTypeSpecifier().getName()
+					.equals(my_parList.get(i).getTypeSpecifier().getName())))
+				return false;
+		}
+		return true;
+	}
+
+	public void visit(MethodDeclaration p) throws ParseTreeException {
+		if (!(isTarget(p))) {
+			super.visit(p);
+		} else { // Change name by appending "_"
+
+			super.visit(p); // keep original method for preventing execution
+							// errors
+
+			this.evaluateDown();
+			// -----------------------------------------------------
+
+			super.mutantInfo.setChangeLocation(getLineNumber());
+			String temp = p.getModifiers().toString() + " "
+					+ p.getReturnType().getName() + " " + p.getName() + "("
+					+ p.getParameters().toString() + ")";
+			super.mutantInfo.setChangeLog(removeNewline(temp) + " is renamed to " + p.getName()
+					+ "_ ");
+
+			// ----------------------------------------------------
+
+			writeTab();
+
+			/* ModifierList */
+			ModifierList modifs = p.getModifiers();
+			if (modifs != null) {
+				modifs.accept(this);
+				if (!modifs.isEmptyAsRegular())
+					out.print(" ");
+			}
+
+			TypeName ts = p.getReturnType();
+			ts.accept(this);
+
+			out.print(" ");
+
+			String name = p.getName() + "_";
+			out.print(name);
+
+			ParameterList params = p.getParameters();
+			out.print("(");
+			if (!params.isEmpty()) {
+				out.print(" ");
+				params.accept(this);
+				out.print(" ");
+			} else {
+				params.accept(this);
+			}
+			out.print(")");
+
+			TypeName[] tnl = p.getThrows();
+			if (tnl.length != 0) {
+				out.println();
+				increaseLineNumber();
+				writeTab();
+				writeTab();
+				out.print("throws ");
+				tnl[0].accept(this);
+				for (int i = 1; i < tnl.length; ++i) {
+					out.print(", ");
+					tnl[i].accept(this);
+				}
+			}
+
+			StatementList bl = p.getBody();
+			if (bl == null) {
+				out.print(";");
+			} else {
+				out.println();
+				increaseLineNumber();
+				writeTab();
+				out.print("{");
+				if (bl.isEmpty()) {
+					bl.accept(this);
+				} else {
+					out.println();
+					increaseLineNumber();
+					pushNest();
+					bl.accept(this);
+					popNest();
+					writeTab();
+				}
+				out.print("}");
+			}
+			out.println();
+			increaseLineNumber();
+			this.evaluateUp();
+
+		}
+
+	}
+}

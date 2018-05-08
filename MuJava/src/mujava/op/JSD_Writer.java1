@@ -1,0 +1,74 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : JSD_Writer.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op;
+
+import java.io.IOException;
+
+import mujava.IMutantInfo;
+import mugamma.MutantCodeWriter;
+import openjava.ptree.FieldDeclaration;
+import openjava.ptree.ModifierList;
+import openjava.ptree.ParseTree;
+import openjava.ptree.ParseTreeException;
+
+/**
+ * <p>Description: </p>
+ * <p>Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED </p>
+ * @author Yu-Seung Ma
+ * @version 1.0
+  */ 
+
+public class JSD_Writer extends MutantCodeWriter
+{
+
+    FieldDeclaration mutant = null;
+    boolean isMutantTarget = false;
+
+    public void setMutant(FieldDeclaration f){
+      mutant = f;
+      isMutantTarget = false;
+    }
+
+    public JSD_Writer(IMutantInfo mutantFile) throws IOException {
+		super(mutantFile);
+	}
+
+    boolean eq(ParseTree p, ParseTree q ) {
+		if(p == null && q == null)  return true;
+		if(p == null || q == null)  return false;
+		return (p.getObjectID() == q.getObjectID());
+    	}
+
+    public void visit( FieldDeclaration p )
+	throws ParseTreeException
+    {
+      if(eq(p, mutant)){
+
+        isMutantTarget = true;
+        super.visit(p);
+        isMutantTarget = false;
+      }else{
+        super.visit(p);
+      }
+    }
+
+    public void visit( ModifierList p )
+	throws ParseTreeException
+    {
+      if(isMutantTarget){
+        ModifierList temp = (ModifierList)p.makeCopy();
+        temp.setRegular(p.getRegular() & ~ModifierList.STATIC);
+        super.visit(temp);
+        // -------------------------------------------------------------
+        super.mutantInfo.setChangeLocation(getLineNumber());
+        super.mutantInfo.setChangeLog(removeNewline("static is deleted"));
+        // -------------------------------------------------------------
+      }else{
+        super.visit(p);
+      }
+    }
+}

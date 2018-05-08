@@ -1,0 +1,194 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : OMD_Writer.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op;
+
+import java.io.IOException;
+
+import mujava.IMutantInfo;
+import mugamma.MutantCodeWriter;
+import openjava.mop.OJClass;
+import openjava.mop.OJMethod;
+import openjava.ptree.MethodDeclaration;
+import openjava.ptree.Parameter;
+import openjava.ptree.ParameterList;
+import openjava.ptree.ParseTree;
+import openjava.ptree.ParseTreeException;
+import openjava.ptree.StatementList;
+
+/**
+ * <p>Description: </p>
+ * <p>Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED </p>
+ * @author Yu-Seung Ma
+ * @version 1.0
+ */
+
+public class OMD_Writer extends MutantCodeWriter {
+
+	MethodDeclaration original = null;
+
+	OJMethod mutant = null;
+
+	OJClass[] mutant_pars = null;
+
+	boolean flag = false;
+
+	public void setMutant(MethodDeclaration original, OJMethod mutant) {
+		this.original = original;
+		this.mutant = mutant;
+		this.mutant_pars = mutant.getParameterTypes();
+	}
+
+	public OMD_Writer(IMutantInfo mutantFile) throws IOException {
+		super(mutantFile);
+	}
+
+	boolean eq(ParseTree p, ParseTree q) {
+		if (p == null && q == null)
+			return true;
+		if (p == null || q == null)
+			return false;
+		return (p.getObjectID() == q.getObjectID());
+	}
+
+	public void visit(MethodDeclaration p) throws ParseTreeException {
+		if (!eq(p, original)) {
+			super.visit(p);
+		} else {
+			// 메소드를 바로 지우면 좋지만, 시험 데이터가 컴파일 될 때 original program의 시그너쳐에 맞춰 개발되어
+			// 반드시 존재해야 하므로, 지우지 않고 redirection 한다.
+			flag = true;
+			super.visit(p);
+			flag = false;
+		}
+	}
+
+	public void visit(StatementList p) throws ParseTreeException {
+		if (!flag) {
+			super.visit(p);
+		} else {
+			//-------------------------------------------------------
+			super.mutantInfo.setChangeLocation(getLineNumber());
+			String temp_str = original.getName() + "("
+					+ original.getParameters().toString() + ")";
+			super.mutantInfo.setChangeLog(removeNewline(temp_str + " => "
+					+ mutant.signature()));
+			//----------------------------------------------------------
+			temp_str = original.getName() + "(";
+			ParameterList pl = original.getParameters();
+			for (int i = 0; i < pl.size() - 1; i++) {
+				Parameter par = pl.get(i);
+				String mutated_type = mutant_pars[i].getName();
+				if (par.getTypeSpecifier().getName().equals(mutated_type)) {
+					temp_str = temp_str + par.getVariable() + ",";
+				} else {
+					temp_str = temp_str + "(" + mutated_type + ")"
+							+ par.getVariable() + ",";
+				}
+			}
+			String mutated_type = mutant_pars[pl.size() - 1].getName();
+			if (pl.get(pl.size() - 1).getTypeSpecifier().getName().equals(
+					mutated_type)) {
+				temp_str = temp_str + pl.get(pl.size() - 1).getVariable() + ")";
+			} else {
+				temp_str = temp_str + "(" + mutated_type + ")"
+						+ pl.get(pl.size() - 1).getVariable() + ")";
+			}
+			super.mutantInfo.setChangeLog(removeNewline("Redirect to  => "
+					+ temp_str));
+			writeTab();
+			if (original.getReturnType().toString().equals("void")) {
+				out.println(temp_str + ";");
+			} else {
+				out.println("return " + temp_str + ";");
+			}
+			increaseLineNumber();
+		}
+	}
+
+	/*    public void visit2( MethodDeclaration p ) throws ParseTreeException
+	 {
+	 if(!p.eq(original)){
+	 super.visit(p);
+	 }else{
+	 if(!p.getReturnType().toString().equals("void")) isVoid=false;
+	 writeTab();
+
+
+	 ModifierList modifs = p.getModifiers();
+	 if (modifs != null) {
+	 modifs.accept( this );
+	 if (! modifs.isEmptyAsRegular())  out.print( " " );
+	 }
+
+	 TypeName ts = p.getReturnType();
+	 ts.accept( this );
+	 out.print( " " );
+
+	 String name = p.getName();
+	 out.print( name );
+
+	 ParameterList params = p.getParameters();
+	 out.print( "(" );
+	 if (! params.isEmpty()) {
+	 out.print( " " );  params.accept( this );  out.print( " " );
+	 } else {
+	 params.accept( this );
+	 }
+	 out.print( ")" );
+
+	 TypeName[] tnl = p.getThrows();
+	 if (tnl.length != 0) {
+	 out.println(); line_num++;
+	 writeTab();  writeTab();
+	 out.print( "throws " );
+	 tnl[0].accept( this );
+	 for (int i = 1; i < tnl.length; ++i) {
+	 out.print ( ", " );
+	 tnl[i].accept( this );
+	 }
+	 }
+
+	 StatementList bl = p.getBody();
+	 out.println(); line_num++; writeTab();
+	 out.print( "{" );
+	 out.println(); line_num++;
+	 pushNest();
+	 //bl.accept( this );
+	 String temp_str = original.getName() + "(";
+	 ParameterList pl = original.getParameters();
+	 for(int i=0;i<pl.size()-1;i++){
+	 Parameter par = pl.get(i);
+	 String mutated_type = mutant_pars[i].getName();
+	 if(par.getTypeSpecifier().getName().equals(mutated_type)){
+	 temp_str = temp_str + par.getVariable() + ",";
+	 }else{
+	 temp_str = temp_str +"("+mutated_type+")"+par.getVariable() + ",";
+	 }
+	 }
+	 String mutated_type = mutant_pars[pl.size()-1].getName();
+	 if(pl.get(pl.size()-1).getTypeSpecifier().getName().equals(mutated_type)){
+	 temp_str = temp_str+pl.get(pl.size()-1).getVariable()+")";
+	 }else{
+	 temp_str = temp_str +"("+mutated_type+")"+pl.get(pl.size()-1).getVariable()+")";
+	 }
+	 writeLog(removeNewline("Redirect to  => "+temp_str));
+	 //----------------------------------------------------------
+	 writeTab();
+	 if(isVoid){
+	 out.println(temp_str+";");
+	 }else{
+	 out.println("return " + temp_str+";");
+	 }
+	 popNest();
+	 writeTab();
+	 out.print( "}" );
+	 out.println(); line_num++;
+	 }
+	 }
+	 */
+
+}

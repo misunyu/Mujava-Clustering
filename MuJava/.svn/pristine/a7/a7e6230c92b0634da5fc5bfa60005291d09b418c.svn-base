@@ -1,0 +1,66 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : EFD_Writer.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op.exception;
+
+import java.io.IOException;
+
+import mugamma.MutantCodeWriter;
+import mujava.IMutantInfo;
+import openjava.ptree.CatchList;
+import openjava.ptree.ParseTree;
+import openjava.ptree.ParseTreeException;
+import openjava.ptree.StatementList;
+import openjava.ptree.TryStatement;
+
+/**
+ * <p>Description: </p>
+ * <p>Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED </p>
+ * @author Yu-Seung Ma
+ * @version 1.0
+  */ 
+
+public class EFD_Writer extends MutantCodeWriter
+{
+  TryStatement mutant = null;
+
+  public EFD_Writer(IMutantInfo mutantFile) throws IOException {
+		super(mutantFile);
+	}
+
+
+  public void setMutant(TryStatement p){
+    mutant = p;
+  }
+  boolean eq(ParseTree p, ParseTree q ) {
+		if(p == null && q == null)  return true;
+		if(p == null || q == null)  return false;
+		return (p.getObjectID() == q.getObjectID());
+  	}
+
+    public void visit( TryStatement p )
+	throws ParseTreeException
+    {
+      if(!eq(p, mutant)){
+        super.visit(p);
+      }else{
+        writeTab();
+        out.print( "try " );
+        StatementList stmts = p.getBody();
+	    writeStatementsBlock( stmts );
+        CatchList catchlist = p.getCatchList();
+        if (! catchlist.isEmpty()) {
+	    catchlist.accept( this );
+        }
+        // -------------------------
+        super.mutantInfo.setChangeLocation(getLineNumber());
+		super.mutantInfo.setChangeLog(" finally block is deleted.");
+        // -------------------------
+        out.println(); 
+        increaseLineNumber();
+      }
+    }
+}

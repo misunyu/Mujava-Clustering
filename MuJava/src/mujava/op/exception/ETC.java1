@@ -1,0 +1,95 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : ETC.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op.exception;
+
+import java.io.IOException;
+import java.util.Vector;
+
+import org.eclipse.jdt.core.IJavaElement;
+
+import mujava.IMutantInfo;
+import mujava.MutantManager;
+import mujava.MutantTable;
+import mujava.MuJavaProject;
+import mujava.ProjectManager;
+import mujava.gen.GenericCodeWriter;
+import mujava.op.basic.AODS_Writer;
+import mujava.op.basic.AORB_Writer;
+import mujava.util.InheritanceINFO;
+import openjava.mop.FileEnvironment;
+import openjava.ptree.AllocationExpression;
+import openjava.ptree.BinaryExpression;
+import openjava.ptree.ClassDeclaration;
+import openjava.ptree.CompilationUnit;
+import openjava.ptree.Expression;
+import openjava.ptree.ParseTreeException;
+import openjava.ptree.ThrowStatement;
+import openjava.ptree.TypeName;
+import openjava.ptree.UnaryExpression;
+
+/**
+ * <p>Description: </p>
+ * <p>Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED </p>
+ * @author Yu-Seung Ma
+ * @version 1.0
+  */
+
+public class ETC extends mujava.op.util.Mutator
+{
+  public ETC(IJavaElement originalSourceFile, FileEnvironment file_env,ClassDeclaration cdecl,
+    CompilationUnit comp_unit)
+  {
+	super( file_env, comp_unit, null, originalSourceFile, "ETC" );
+  }
+
+  public void visit( ThrowStatement p ) throws ParseTreeException
+  {
+    genETC(p);
+  }
+
+  void genETC(ThrowStatement p){
+    try{
+      Expression expr = p.getExpression();
+      if(expr instanceof AllocationExpression){
+        AllocationExpression original= (AllocationExpression)expr;
+        String exp_type = original.getClassType().getName();
+        InheritanceINFO inf = mujava.MutationSystem.getInheritanceInfo(exp_type);
+        if(inf==null) return;
+         Vector v = inf.getChilds();
+          if(v.size()>0){
+            for(int i=0;i<v.size();i++){
+              InheritanceINFO my = (InheritanceINFO)(v.get(i));
+              AllocationExpression mutant = (AllocationExpression)original.makeRecursiveCopy();
+              mutant.setClassType(new TypeName(my.getClassName()));
+              outputToFile(original,mutant);
+            }
+          }
+      }
+    }catch(Exception e){
+      e.printStackTrace();
+    }
+  }
+
+  
+   @Override
+   protected int getMutantType() {
+   	return IMutantInfo.EXCEPTIONAL;
+   }
+
+   @Override
+	protected GenericCodeWriter getMutantCodeWriter(IMutantInfo mutantFile, Object[] args) throws IOException {
+		if(args.length == 2 && args[0] instanceof AllocationExpression && args[1] instanceof AllocationExpression) {
+			ETC_Writer mutantWriter = new ETC_Writer(mutantFile);
+			mutantWriter.setMutant((AllocationExpression)args[0], (AllocationExpression)args[1]);
+			
+			return  mutantWriter;
+		}
+		
+		assert(false);
+		return null;
+	}
+}

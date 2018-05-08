@@ -1,0 +1,54 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : EHD_Writer.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op.exception;
+
+import java.io.IOException;
+
+import mugamma.MutantCodeWriter;
+import mujava.IMutantInfo;
+import openjava.ptree.CatchBlock;
+import openjava.ptree.ParseTree;
+import openjava.ptree.ParseTreeException;
+
+/**
+ * <p>Description: </p>
+ * <p>Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED </p>
+ * @author Yu-Seung Ma
+ * @version 1.0
+  */ 
+
+public class EHD_Writer extends MutantCodeWriter
+{
+  CatchBlock mutant = null;
+
+  public EHD_Writer(IMutantInfo mutantFile) throws IOException {
+		super(mutantFile);
+	}
+
+  public void setMutant(CatchBlock p){
+    mutant = p;
+  }
+
+  boolean eq(ParseTree p, ParseTree q ) {
+		if(p == null && q == null)  return true;
+		if(p == null || q == null)  return false;
+		return (p.getObjectID() == q.getObjectID());
+  	}
+
+  public void visit( CatchBlock p ) throws ParseTreeException
+  {
+    if(eq(p, mutant)){
+        // -------------------------
+        String str = " catch block for " +  p.getParameter().getTypeSpecifier().getName()+ " is deleted."; 
+        super.mutantInfo.setChangeLocation(getLineNumber());
+		super.mutantInfo.setChangeLog(str);
+        // -------------------------          }else{
+    }else{
+      super.visit(p);
+    }
+  }
+}

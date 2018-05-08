@@ -1,0 +1,151 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : JTD.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op;
+
+import java.io.IOException;
+import java.util.Vector;
+
+import mujava.IMutantInfo;
+import mujava.MutantManager;
+import mujava.MutantTable;
+import mujava.MuJavaProject;
+import mujava.ProjectManager;
+import org.eclipse.jdt.core.IJavaElement;
+import mujava.gen.GenericCodeWriter;
+import openjava.mop.FileEnvironment;
+import openjava.ptree.AssignmentExpression;
+import openjava.ptree.ClassDeclaration;
+import openjava.ptree.CompilationUnit;
+import openjava.ptree.ConstructorDeclaration;
+import openjava.ptree.Expression;
+import openjava.ptree.FieldAccess;
+import openjava.ptree.FieldDeclaration;
+import openjava.ptree.MethodCall;
+import openjava.ptree.MethodDeclaration;
+import openjava.ptree.Parameter;
+import openjava.ptree.ParameterList;
+import openjava.ptree.ParseTreeException;
+import openjava.ptree.SelfAccess;
+
+/**
+ * <p>
+ * Description:
+ * </p>
+ * <p>
+ * Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED
+ * </p>
+ * 
+ * @author Yu-Seung Ma
+ * @version 1.0
+ */
+
+public class JTD extends mujava.op.util.Mutator {
+
+	Vector instanceVar = new Vector();
+
+	Vector localVar = new Vector();
+
+	boolean isJTDTarget = false;
+
+	public JTD(MuJavaProject project, IJavaElement originalSourceFile, FileEnvironment file_env,
+			ClassDeclaration cdecl, CompilationUnit comp_unit) {
+		super(file_env, comp_unit, project, originalSourceFile, "JTD");
+	}
+
+	boolean isTarget(Parameter p) throws ParseTreeException {
+		for (int i = 0; i < instanceVar.size(); i++) {
+			String field_name = instanceVar.get(i).toString();
+			if (field_name.equals(p.getVariable())) {
+				localVar.add(p.getVariable());
+				return true;
+			}
+		}
+		return false;
+	}
+
+	public void visit(ConstructorDeclaration p) throws ParseTreeException {
+		ParameterList plist = p.getParameters();
+		localVar.removeAllElements();
+		for (int i = 0; i < plist.size(); i++) {
+			if (isTarget(plist.get(i))) {
+				isJTDTarget = true;
+			}
+		}
+		if (isJTDTarget) {
+			super.visit(p);
+		}
+		isJTDTarget = false;
+	}
+
+	public void visit(MethodDeclaration p) throws ParseTreeException {
+		ParameterList plist = p.getParameters();
+		localVar.removeAllElements();
+		for (int i = 0; i < plist.size(); i++) {
+			if (isTarget(plist.get(i))) {
+				isJTDTarget = true;
+			}
+		}
+		if (isJTDTarget) {
+			super.visit(p);
+		}
+		isJTDTarget = false;
+	}
+
+	public void visit(FieldAccess p) throws ParseTreeException {
+		Expression ref_exp = p.getReferenceExpr();
+		String var_name = p.getName();
+		if (ref_exp instanceof SelfAccess) {
+			if (((SelfAccess) ref_exp).getAccessType() == SelfAccess.THIS) {
+				for (int i = 0; i < localVar.size(); i++) {
+					if (var_name.equals(localVar.get(i).toString())) {
+						FieldAccess mutant = (FieldAccess) p
+								.makeRecursiveCopy();
+						mutant.setReferenceExpr(null);
+						outputToFile(p, mutant);
+					}
+				}
+			}
+		}
+	}
+
+	/*
+	 * public void visit( MethodCall p ) throws ParseTreeException { // generate
+	 * equivalent mutants Expression lexp = p.getReferenceExpr();
+	 * if(lexp!=null){ if(lexp instanceof SelfAccess){
+	 * if(((SelfAccess)lexp).getAccessType()==SelfAccess.THIS){ MethodCall
+	 * mutant; mutant = (MethodCall)p.makeRecursiveCopy();
+	 * mutant.setReferenceExpr(null); outputToFile(p,mutant); } }else if(lexp
+	 * instanceof FieldAccess){ super.visit(p); } } }
+	 */
+
+	@Override
+	protected int getMutantType() {
+		return IMutantInfo.CLASS;
+	}
+
+	@Override
+	protected GenericCodeWriter getMutantCodeWriter(IMutantInfo mutantFile,
+			Object[] args) throws IOException {
+		if (args.length == 2) {
+			if (args[0] instanceof MethodCall && args[1] instanceof MethodCall) {
+				ISK_JTD_Writer mutantWriter = new ISK_JTD_Writer(mutantFile);
+				mutantWriter.setMutant((MethodCall) args[0],
+						(MethodCall) args[1]);
+				return mutantWriter;
+			} else if (args[0] instanceof FieldAccess
+					&& args[1] instanceof FieldAccess) {
+				ISK_JTD_Writer mutantWriter = new ISK_JTD_Writer(mutantFile);
+				mutantWriter.setMutant((FieldAccess) args[0],
+						(FieldAccess) args[1]);
+				return mutantWriter;
+			}
+		}
+		assert (false);
+		return null;
+
+	}
+}

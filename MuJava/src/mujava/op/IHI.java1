@@ -1,0 +1,123 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : IHI.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op;
+
+import java.io.IOException;
+
+import mujava.IMutantInfo;
+import mujava.MutantManager;
+import mujava.MutantTable;
+import mujava.MuJavaProject;
+import mujava.ProjectManager;
+import org.eclipse.jdt.core.IJavaElement;
+import mujava.gen.GenericCodeWriter;
+import mujava.op.util.DeclAnalyzer;
+import openjava.mop.Environment;
+import openjava.mop.OJField;
+import openjava.mop.OJModifier;
+import openjava.ptree.CompilationUnit;
+import openjava.ptree.FieldDeclaration;
+import openjava.ptree.ModifierList;
+import openjava.ptree.ParseTreeException;
+import openjava.ptree.TypeName;
+
+/**
+ * <p>
+ * Description: Generate IHI mutants
+ * </p>
+ * <p>
+ * Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED
+ * </p>
+ * 
+ * @author Yu-Seung Ma
+ * @version 1.0
+ */
+
+public class IHI extends DeclAnalyzer {
+	Environment file_env = null;
+
+	public void translateDefinition(CompilationUnit comp_unit)
+			throws openjava.mop.MOPException {
+		super.setTargetClass(comp_unit);
+		OJField[] d_fields = getDeclaredFields();
+		OJField[] i_fields = getInheritedFields();
+
+		if (i_fields.length == 0)
+			return;
+
+		for (int i = 0; i < i_fields.length; ++i) {
+			// private or final field do not have any hiding side-effect
+			if (i_fields[i].getModifiers().isPrivate())
+				continue;
+			if (i_fields[i].getModifiers().isFinal())
+				continue;
+
+			boolean isHidden = false;
+			for (int j = 0; j < d_fields.length; ++j) {
+				if (equalFieldByNameAndType(i_fields[i], d_fields[j])) {
+					isHidden = true;
+					break;
+				}
+			}
+			if (!isHidden) {
+				if (i_fields[i].getModifiers().isPublic()
+						|| !isEquivalent(comp_unit, i_fields[i])) {
+					try {
+						ModifierList modlist = new ModifierList();
+						OJModifier modif = i_fields[i].getModifiers();
+						TypeName tname = TypeName.forOJClass(i_fields[i]
+								.getType());
+						modlist.add(modif.toModifier());
+						String name = i_fields[i].getName();
+						FieldDeclaration mutant = new FieldDeclaration(modlist,
+								tname, name, null);
+						outputToFile(mutant);
+					} catch (Exception ex) {
+						System.err.println("[Exception]  " + ex);
+					}
+				}
+			}
+		}
+	}
+
+	private boolean isEquivalent(CompilationUnit comp_unit, OJField f) {
+		IHD_IHI_EqAnalyzer engine = new IHD_IHI_EqAnalyzer(super.getMujavaProject(),super
+				.getOriginalSourceFile(), file_env, comp_unit, f.getName());
+		try {
+			comp_unit.accept(engine);
+		} catch (ParseTreeException e) {
+		}
+		if (engine.isEquivalent())
+			return true;
+		else
+			return false;
+	}
+
+	public IHI(MuJavaProject project, IJavaElement originalSourceFile,
+			openjava.mop.Environment oj_param0, openjava.mop.OJClass oj_param1,
+			openjava.ptree.ClassDeclaration oj_param2) {
+		super(oj_param0, oj_param1, oj_param2, project, originalSourceFile, "IHI");
+		file_env = oj_param0;
+	}
+
+	@Override
+	protected int getMutantType() {
+		return IMutantInfo.CLASS;
+	}
+
+	@Override
+	protected GenericCodeWriter getMutantCodeWriter(IMutantInfo mutantFile,
+			Object[] args) throws IOException {
+		if (args.length == 1 && args[0] instanceof FieldDeclaration) {
+			IHI_Writer mutantWriter = new IHI_Writer(mutantFile);
+			mutantWriter.setMutant((FieldDeclaration) args[0]);
+			return mutantWriter;
+		}
+		assert (false);
+		return null;
+	}
+}

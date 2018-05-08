@@ -1,0 +1,110 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : PCD.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op;
+
+import java.io.IOException;
+
+import mujava.IMutantInfo;
+import mujava.MutantManager;
+import mujava.MutantTable;
+import mujava.MuJavaProject;
+import mujava.ProjectManager;
+import org.eclipse.jdt.core.IJavaElement;
+import mujava.gen.GenericCodeWriter;
+import openjava.mop.FileEnvironment;
+import openjava.ptree.CastExpression;
+import openjava.ptree.ClassDeclaration;
+import openjava.ptree.CompilationUnit;
+import openjava.ptree.Expression;
+import openjava.ptree.ExpressionList;
+import openjava.ptree.MethodCall;
+import openjava.ptree.ParseTreeException;
+import openjava.ptree.Variable;
+
+/**
+ * <p>
+ * Description:
+ * </p>
+ * <p>
+ * Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED
+ * </p>
+ * 
+ * @author Yu-Seung Ma
+ * @version 1.0
+ */
+
+public class PCD extends mujava.op.util.TypeCastMutator {
+
+	public PCD(MuJavaProject project, IJavaElement originalSourceFile, FileEnvironment file_env,
+			ClassDeclaration cdecl, CompilationUnit comp_unit) {
+		super(file_env, comp_unit, project, originalSourceFile, "PCD");
+	}
+
+	public void visit(CastExpression p) throws ParseTreeException {
+		String afterCastType = p.getTypeSpecifier().getName();
+		String beforeCastType = getType(p.getExpression()).getName();
+		if ((afterCastType == null) || (beforeCastType == null))
+			return;
+		if (afterCastType.equals(beforeCastType))
+			return;
+		if (currentMethodCall == null) {
+			if (hasHidingVariableOrOverridingMethod(afterCastType,
+					beforeCastType)) {
+				outputToFile(p);
+			}
+		} else {
+			try {
+				String method_name = currentMethodCall.getName();
+				Class[] par_type = getParameterTypes(currentMethodCall);
+				if (isNonAbstractOverridingMethodCall(afterCastType,
+						beforeCastType, method_name, par_type)) {
+					outputToFile(p);
+				}
+			} catch (Exception e) {
+				// e.printStackTrace();
+
+			}
+		}
+	}
+
+	public void visit(MethodCall p) throws ParseTreeException {
+		Expression newp = this.evaluateDown(p);
+		if (newp != p) {
+			p.replace(newp);
+			return;
+		}
+		Expression ref = p.getReferenceExpr();
+		String method_name = p.getName();
+		if (ref != null) {
+			currentMethodCall = p;
+			ref.accept(this);
+			currentMethodCall = null;
+		}
+		ExpressionList list = p.getArguments();
+		if (list != null)
+			list.accept(this);
+	}
+
+	@Override
+	protected int getMutantType() {
+		return IMutantInfo.CLASS;
+	}
+
+	@Override
+	protected GenericCodeWriter getMutantCodeWriter(IMutantInfo mutantFile,
+			Object[] args) throws IOException {
+		if(args.length == 1 && args[0] instanceof CastExpression) {
+			PCD_Writer mutantWriter = new PCD_Writer(mutantFile);
+			mutantWriter.setMutant((CastExpression) args[0]);
+			
+			return  mutantWriter;
+		}
+		
+		assert(false);
+		return null;
+	}
+}

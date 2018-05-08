@@ -1,0 +1,151 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : ABS_Writer.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op;
+
+import java.io.IOException;
+
+import mugamma.MutantCodeWriter;
+import mujava.IMutantInfo;
+import openjava.ptree.BinaryExpression;
+import openjava.ptree.MethodCall;
+import openjava.ptree.ParseTree;
+import openjava.ptree.ParseTreeException;
+import openjava.ptree.Variable;
+
+/**
+ * <p>Description: </p>
+ * <p>Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED </p>
+ * @author Yu-Seung Ma, swkim
+ * @version 1.0
+  */ 
+
+public class ABS_Writer extends MutantCodeWriter{
+
+  final int ZERO = 0;
+  final int NEGATIVE = 1;
+
+  BinaryExpression original_exp;
+  Variable original_var;
+  MethodCall original_call;
+  int flag;
+
+  public ABS_Writer(IMutantInfo mutantFile) throws IOException {
+		super(mutantFile);
+	}
+
+  public void setZeroFlag(MethodCall exp){
+    flag = ZERO;
+    original_call = exp;
+  }
+
+  public void setNegativeFlag(MethodCall exp){
+    flag = NEGATIVE;
+    original_call = exp;
+  }
+
+  public void setZeroFlag(BinaryExpression exp){
+    flag = ZERO;
+    original_exp = exp;
+  }
+
+  public void setNegativeFlag(BinaryExpression exp){
+    flag = NEGATIVE;
+    original_exp = exp;
+  }
+
+  public void setZeroFlag(Variable var){
+    flag = ZERO;
+    original_var = var;
+  }
+
+  public void setNegativeFlag(Variable var){
+    flag = NEGATIVE;
+    original_var = var;
+  }
+  boolean eq(ParseTree p, ParseTree q) {
+		if (p == null && q == null)
+			return true;
+		if (p == null || q == null)
+			return false;
+		return (p.getObjectID() == q.getObjectID());
+	}
+  public void visit( BinaryExpression p )
+  throws ParseTreeException
+  {
+    if(eq(p, original_exp)){
+        if(flag==ZERO){
+            out.print(0);
+            // -----------------------------------------------------------
+            String log_str = p.toString()+ "  =>  0 ";
+            super.mutantInfo.setChangeLocation(getLineNumber());
+			super.mutantInfo.setChangeLog(removeNewline(log_str));
+            // -------------------------------------------------------------
+
+        }else if(flag==NEGATIVE){
+            out.print("(-("+p.toString()+"))");
+             // -----------------------------------------------------------
+            String log_str = p.toString()+ "  =>  -("+p.toString()+")";
+            super.mutantInfo.setChangeLocation(getLineNumber());
+			super.mutantInfo.setChangeLog(removeNewline(log_str));
+            // -------------------------------------------------------------
+        }
+    }else{
+        super.visit(p);
+    }
+  }
+
+public void visit( MethodCall p )
+  throws ParseTreeException
+  {
+    if(eq(p, original_call)){
+        if(flag==ZERO){
+            out.print(0);
+            // -----------------------------------------------------------
+            String log_str = p.toString()+ "  =>  0 ";
+            super.mutantInfo.setChangeLocation(getLineNumber());
+			super.mutantInfo.setChangeLog(removeNewline(log_str));
+            // -------------------------------------------------------------
+
+        }else if(flag==NEGATIVE){
+            out.print("(-("+p.toString()+"))");
+             // -----------------------------------------------------------
+            String log_str = p.toString()+ "  =>  -("+p.toString()+")";
+            super.mutantInfo.setChangeLocation(getLineNumber());
+			super.mutantInfo.setChangeLog(removeNewline(log_str));
+            // -------------------------------------------------------------
+        }
+    }else{
+        super.visit(p);
+    }
+  }
+
+
+  public void visit( Variable p )
+  throws ParseTreeException
+  {
+    if(eq(p, original_var)){
+        if(flag==ZERO){
+            out.print(0);
+            // -----------------------------------------------------------
+            String log_str = p.toString()+ "  =>  0 ";
+            super.mutantInfo.setChangeLocation(getLineNumber());
+			super.mutantInfo.setChangeLog(removeNewline(log_str));
+            // -------------------------------------------------------------
+
+        }else if(flag==NEGATIVE){
+            out.print("(-"+p.toString()+")");
+             // -----------------------------------------------------------
+            String log_str = p.toString()+ "  =>  -"+p.toString();
+            super.mutantInfo.setChangeLocation(getLineNumber());
+			super.mutantInfo.setChangeLog(removeNewline(log_str));
+            // -------------------------------------------------------------
+        }
+    }else{
+        super.visit(p);
+    }
+  }
+}

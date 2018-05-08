@@ -1,0 +1,200 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : IOP.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op;
+
+import java.io.IOException;
+
+import mujava.IMutantInfo;
+import mujava.MutantManager;
+import mujava.MutantTable;
+import mujava.MuJavaProject;
+import mujava.ProjectManager;
+import org.eclipse.jdt.core.IJavaElement;
+import mujava.gen.GenericCodeWriter;
+import openjava.mop.FileEnvironment;
+import openjava.mop.OJClass;
+import openjava.ptree.ClassDeclaration;
+import openjava.ptree.CompilationUnit;
+import openjava.ptree.ConstructorInvocation;
+import openjava.ptree.Expression;
+import openjava.ptree.ExpressionList;
+import openjava.ptree.ExpressionStatement;
+import openjava.ptree.MethodCall;
+import openjava.ptree.MethodDeclaration;
+import openjava.ptree.ParameterList;
+import openjava.ptree.ParseTreeException;
+import openjava.ptree.SelfAccess;
+import openjava.ptree.Statement;
+import openjava.ptree.StatementList;
+
+/**
+ * <p>
+ * Description: Generate IOP mutants
+ * </p>
+ * <p>
+ * Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED
+ * </p>
+ * 
+ * @author Yu-Seung Ma
+ * @version 1.0
+ */
+
+public class IOP extends mujava.op.util.Mutator implements IOP_Helper {
+
+	MethodDeclaration containing_method = null;
+
+	public IOP(MuJavaProject project, IJavaElement originalSourceFile, FileEnvironment file_env,
+			ClassDeclaration cdecl, CompilationUnit comp_unit) {
+		super(file_env, comp_unit, project, originalSourceFile, "IOP");
+	}
+
+	public void visit(MethodDeclaration p) throws ParseTreeException {
+		if (p.getName().equals("main"))
+			return;
+		containing_method = p;
+		super.visit(p);
+	}
+
+	boolean compatibleParameters(ExpressionList args, ParameterList plist) {
+		if (args.size() != plist.size())
+			return false;
+		OJClass type = null;
+
+		for (int i = 0; i < args.size(); i++) {
+			try {
+				type = getType(args.get(i));
+			} catch (ParseTreeException e) {
+				type = null;
+			}
+			if (!(type.getName().equals(plist.get(i).getTypeSpecifier()
+					.getName())))
+				return false;
+		}
+		return true;
+	}
+
+	boolean isOverridingMethodCallWithSameName(MethodCall p) {
+		Expression lexp = p.getReferenceExpr();
+		if (lexp == null)
+			return false;
+		if (!(lexp instanceof SelfAccess))
+			return false;
+		if (!(((SelfAccess) lexp).getAccessType() == SelfAccess.SUPER))
+			return false;
+		if (!(p.getName().equals(containing_method.getName())))
+			return false;
+		if (!compatibleParameters(p.getArguments(), containing_method
+				.getParameters()))
+			return false;
+		return true;
+	}
+
+	public void visit(StatementList p) throws ParseTreeException {
+		this.evaluateDown(p);
+		for (int i = 0; i < p.size(); i++) {
+			Statement stmt = p.get(i);
+			if (stmt instanceof ExpressionStatement) {
+				Expression exp = ((ExpressionStatement) stmt).getExpression();
+				if (exp instanceof MethodCall) {
+					if (isOverridingMethodCallWithSameName((MethodCall) exp)) {
+						int[] change_mod = getChangeType(p.size(), i);
+						if (change_mod == null)
+							continue;
+						for (int h = 0; h < change_mod.length; h++) {
+							outputToFile(p, i, change_mod[h]);
+						}
+					}
+				}
+			}
+		}
+		this.evaluateUp(p);
+
+	}
+
+	static int[] getChangeType(int stmt_num, int index) {
+		int[] result = null;
+
+		switch (stmt_num) {
+		case 0:
+			break;
+
+		case 1:
+			break;
+
+		case 2:
+			result = new int[1];
+			if (index == 0)
+				result[0] = LAST;
+			else
+				result[0] = FIRST;
+			break;
+
+		case 3:
+			result = new int[2];
+			if (index == 0) {
+				result[0] = LAST;
+				result[1] = DOWN;
+			} else if (index == 1) {
+				result[0] = FIRST;
+				result[1] = LAST;
+			} else if (index == 2) {
+				result[0] = FIRST;
+				result[1] = UP;
+			}
+			break;
+
+		default:
+			if (index == 0) {
+				result = new int[2];
+				result[0] = LAST;
+				result[1] = DOWN;
+			} else if (index == 1) {
+				result = new int[3];
+				result[0] = FIRST;
+				result[1] = LAST;
+				result[2] = DOWN;
+			} else if (index == stmt_num - 2) {
+				result = new int[3];
+				result[0] = FIRST;
+				result[1] = LAST;
+				result[2] = UP;
+			} else if (index == stmt_num - 1) {
+				result = new int[2];
+				result[0] = FIRST;
+				result[1] = UP;
+			} else {
+				result = new int[4];
+				result[0] = FIRST;
+				result[1] = LAST;
+				result[2] = UP;
+				result[3] = DOWN;
+			}
+
+		}
+		return result;
+	}
+
+	@Override
+	protected int getMutantType() {
+		return IMutantInfo.CLASS;
+	}
+
+	@Override
+	protected GenericCodeWriter getMutantCodeWriter(IMutantInfo mutantFile,
+			Object[] args) throws IOException {
+		if (args.length == 3 && args[0] instanceof StatementList
+				&& args[1] instanceof Integer && args[2] instanceof Integer) {
+			IOP_Writer mutantWriter = new IOP_Writer(mutantFile);
+			mutantWriter.setMutant((StatementList) args[0], ((Integer) args[1])
+					.intValue(), ((Integer) args[2]).intValue());
+			return mutantWriter;
+		}
+
+		assert (false);
+		return null;
+	}
+}

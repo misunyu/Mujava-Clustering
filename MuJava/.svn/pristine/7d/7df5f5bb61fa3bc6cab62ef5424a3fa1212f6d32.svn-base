@@ -1,0 +1,104 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : JSD.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op;
+
+import java.io.IOException;
+import java.util.Vector;
+
+import mujava.IMutantInfo;
+import mujava.MutantManager;
+import mujava.MutantTable;
+import mujava.MuJavaProject;
+import mujava.ProjectManager;
+import org.eclipse.jdt.core.IJavaElement;
+import mujava.gen.GenericCodeWriter;
+import openjava.mop.FileEnvironment;
+import openjava.ptree.ClassDeclaration;
+import openjava.ptree.CompilationUnit;
+import openjava.ptree.FieldDeclaration;
+import openjava.ptree.MethodDeclaration;
+import openjava.ptree.ModifierList;
+import openjava.ptree.ParseTreeException;
+import openjava.ptree.Variable;
+
+/**
+ * <p>Description: </p>
+ * <p>Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED </p>
+ * @author Yu-Seung Ma
+ * @version 1.0
+  */
+
+public class JSD extends mujava.op.util.Mutator
+{
+
+  Vector staticFields;
+  boolean isField;
+
+  public JSD(MuJavaProject project, IJavaElement originalSourceFile, FileEnvironment file_env,ClassDeclaration cdecl,
+    CompilationUnit comp_unit)
+  {
+	super( file_env,comp_unit, project, originalSourceFile, "JSD" );
+	
+    staticFields = new Vector();
+    isField = false;
+  }
+
+  public void visit( ClassDeclaration p ) throws ParseTreeException {
+	  //TODO check className
+	  IJavaElement src = super.getSourceJavaElement();
+	  String className = src.getElementName();
+	  
+	  //if(p.getName().equals(MutationSystem.CLASS_NAME)){
+    if(p.getName().equals(className)){
+      super.visit(p);
+      for(int i=0;i<staticFields.size();i++){
+        outputToFile((FieldDeclaration)(staticFields.get(i)));
+      }
+    }
+  }
+
+  public void visit( FieldDeclaration p ) throws ParseTreeException {
+    if(p.getModifiers().contains(ModifierList.STATIC)){
+      staticFields.add(p);
+    }
+  }
+
+  public void visit( MethodDeclaration p ) throws ParseTreeException {
+    if(p.getModifiers().contains(ModifierList.STATIC)){
+      super.visit(p);
+    }
+  }
+
+  public void visit( Variable p ) throws ParseTreeException {
+    for(int i=0;i<staticFields.size();i++){
+      FieldDeclaration fd = (FieldDeclaration)(staticFields.get(i));
+      String name = fd.getName();
+      if(name.equals(p.toString())){
+        staticFields.remove(fd);
+        return;
+      }
+    }
+  }
+
+
+   
+   @Override
+   protected int getMutantType() {
+   	return IMutantInfo.CLASS;
+   }
+
+@Override
+protected GenericCodeWriter getMutantCodeWriter(IMutantInfo mutantFile, Object[] args) throws IOException {
+	if(args.length == 1 && args[0] instanceof FieldDeclaration) {
+		JSD_Writer mutantWriter = new JSD_Writer(mutantFile);
+		mutantWriter.setMutant((FieldDeclaration)args[0]);
+		return mutantWriter;
+	}
+	assert(false);
+	return null;
+}
+}

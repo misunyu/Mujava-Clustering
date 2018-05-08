@@ -1,0 +1,89 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : JDC.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op;
+
+import java.io.IOException;
+
+import mujava.IMutantInfo;
+import mujava.MutantManager;
+import mujava.MutantTable;
+import mujava.MuJavaProject;
+import mujava.ProjectManager;
+import org.eclipse.jdt.core.IJavaElement;
+import mujava.gen.GenericCodeWriter;
+import mujava.op.util.DeclAnalyzer;
+import openjava.mop.NoSuchMemberException;
+import openjava.mop.OJConstructor;
+import openjava.ptree.CompilationUnit;
+import openjava.ptree.ConstructorDeclaration;
+import openjava.ptree.ParseTreeException;
+import openjava.ptree.StatementList;
+
+/**
+ * <p>
+ * Description:
+ * </p>
+ * <p>
+ * Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED
+ * </p>
+ * 
+ * @author Yu-Seung Ma
+ * @version 1.0
+ */ 
+
+public class JDC extends DeclAnalyzer
+{
+    private IJavaElement originalSourceFile = null;
+
+	public void translateDefinition(CompilationUnit comp_unit)
+        throws openjava.mop.MOPException
+    {
+		super.setTargetClass(comp_unit);
+	try{
+	  OJConstructor[] cons = getDeclaredConstructors();
+	  OJConstructor base_const = getDeclaredConstructor(null);
+
+      if(cons==null) return;
+
+	  if(cons.length==1 && base_const!=null){
+        StatementList stmts = base_const.getBody();
+         if(!(stmts.isEmpty())){
+          ConstructorDeclaration original = base_const.getSourceCode();
+          outputToFile(original);
+        }
+	  }
+	}catch(NoSuchMemberException e1){
+	  // default constructor does not exist
+	  // No operation
+	}catch(Exception ex){
+	  System.err.println("JDC : " + ex);
+	}
+    }
+
+    public JDC( MuJavaProject project, IJavaElement originalSourceFile, openjava.mop.Environment oj_param0, openjava.mop.OJClass oj_param1, openjava.ptree.ClassDeclaration oj_param2 )
+    {
+        super( oj_param0, oj_param1, oj_param2, project, originalSourceFile, "JDC" );
+    }
+
+    @Override
+    protected int getMutantType() {
+    	return IMutantInfo.CLASS;
+    }
+
+
+	@Override
+	protected GenericCodeWriter getMutantCodeWriter(IMutantInfo mutantFile, Object[] args) throws IOException {
+		if(args.length == 1 && args[0] instanceof ConstructorDeclaration) {
+			JDC_Writer mutantWriter = new JDC_Writer(mutantFile);
+			mutantWriter.setMutant((ConstructorDeclaration)args[0]);
+			return mutantWriter;
+		}
+		
+		assert(false);
+		return null;
+	}
+}

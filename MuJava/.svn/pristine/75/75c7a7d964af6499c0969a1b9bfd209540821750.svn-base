@@ -1,0 +1,260 @@
+package mujava.gen.writer.normal.traditional;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import org.eclipse.jdt.core.ICompilationUnit;
+import org.eclipse.jdt.core.IJavaElement;
+import org.eclipse.jdt.core.IPackageDeclaration;
+import org.eclipse.jdt.core.JavaModelException;
+
+import kaist.selab.util.MuJavaLogger;
+import mujava.MuJavaMutantInfo;
+import mujava.MutantOperator;
+import mujava.gen.seeker.traditional.RORChangePointSeeker;
+import mujava.op.util.ChangePoint;
+import openjava.mop.Environment;
+import openjava.mop.OJClass;
+import openjava.ptree.BinaryExpression;
+import openjava.ptree.Expression;
+import openjava.ptree.ParseTreeException;
+import mujava.op.traditional.ROR;
+
+/**
+ * <p>
+ * Description:
+ * </p>
+ * 
+ * @author swkim
+ * @version 1.1
+ */
+
+public class ROR_NormalWriter extends TraditionalMutantNormalWriter {
+	public static TraditionalMutantNormalWriter getMutantCodeWriter(
+			RORChangePointSeeker mutator) throws IOException {
+		ROR_NormalWriter mutantWriter = new ROR_NormalWriter(mutator
+				.getFileEnvironment());
+		List<ChangePoint> list = mutator.getChangePoints();
+		mutantWriter.setChangePoints(list);
+
+		// Also, sets the hash code of target file, to distinguish every
+		// same mutant whose ID is the same as the mutant generated from another
+		// target file
+		int hashCode = mutator.getTargetFileID();
+		mutantWriter.setTargetFileHashCode(hashCode);
+		mutantWriter.setSizeOfIteration(mutator.getIterationTable());
+		return mutantWriter;
+	}
+
+	public ROR_NormalWriter(Environment env) throws IOException {
+		super(env, "ROR", false);
+
+		// # of mutants which could be generated from a change point - 1
+		// super.fixedSizeOfIteration = 5; // for arithematic instance
+		// super.fixedSizeOfIteration = 2; // for object
+	}
+
+	public void visit(BinaryExpression p) throws ParseTreeException {
+		assert (super.currentChangePoint != null);
+
+		if (super.currentChangePoint.isSamePoint(p, currentMethod)) {
+			String mutantID = super.getMutationOperatorName() + "_"
+					+ super.getTargetFileHashCode() + "_"
+					+ currentChangePoint.getID();
+
+			OJClass retType = getType(p);
+			if (retType == null) {
+				MuJavaLogger.getLogger().error(
+						"Unhandled type object : " + p.toFlattenString());
+
+				super.visit(p);
+				return;
+			}
+			Expression leftExp = p.getLeft();
+			Expression rightExp = p.getRight();
+
+			/*
+			 * Make a mutant expression. To generate a different mutant whenever
+			 * this writer is executed, for a given a same change point, it
+			 * record all mutants generated from the same change point and then
+			 * figure out new mutant expression from the history
+			 */
+			int operator = p.getOperator();
+
+			OJClass clz = getType(leftExp);
+			
+			int newOperator = -1;
+
+			if (clz.isPrimitive()){
+				newOperator = ROR.getROROperator(operator, extractMutantOpArray(mutantID, generatedMutantID)) ;
+			}else{
+				newOperator = ROR.getROROperatorForObject(operator, extractMutantOpArray(mutantID, generatedMutantID)) ;
+			}
+										
+			mutantID = mutantID + "_" + newOperator;
+	
+			if(newOperator==ROR.TRUE){
+					out.print("true");
+			}else if(newOperator==ROR.FALSE){
+					out.print("false");				
+			}else{
+					// begin to write mutated code
+					if (isOperatorNeededLeftPar(operator, leftExp)) {
+						writeParenthesis(leftExp);
+					} else {
+						super.visit(leftExp);
+					}
+		
+					out.print(" " + getRORCode(newOperator) + " ");
+		
+					if (isOperatorNeededLeftPar(operator, rightExp)) {
+						writeParenthesis(rightExp);
+					} else {
+						super.visit(rightExp);
+					}
+					// end of mutant-code writing
+			}
+	
+			/**
+			* Create MuJavaMutantInfo object to support mutant information
+			*/
+			// initial setting for normal way
+			MuJavaMutantInfo m = new MuJavaMutantInfo();
+			m.setChangeLocation(getLineNumber());
+			m.setSizeOfSubID(1);
+			m.setSubTypeOperator(newOperator);
+			m.setGenerationWay(MutantOperator.GEN_NORMAL);
+			m.setMutationOperatorName(this.getMutationOperatorName());
+			m.setMutantID(mutantID);
+			m.setChangeLog(removeNewline(p.toString() + " => "
+						+ ROR.getMutatedExp(leftExp.toFlattenString(),rightExp.toFlattenString(),newOperator)));
+	
+			/**
+			* registers its mutation information
+			*/
+			super.generatedMutantID.add(mutantID);
+			super.mujavaMutantInfos.add(m);
+			increaseSizeOfChangedPoints();
+
+		} else
+			super.visit(p);
+
+	}
+	
+
+	private int getNextMutantOperator(String mutantID, int operator,
+			List<String> generatedMutantID) {
+		String newID = mutantID + "_";
+		if (operator != BinaryExpression.GREATER) {
+			String id = newID + BinaryExpression.GREATER;
+			if (!generatedMutantID.contains(id))
+				return BinaryExpression.GREATER;
+		}
+		if (operator != BinaryExpression.GREATEREQUAL) {
+			String id = newID + BinaryExpression.GREATEREQUAL;
+			if (!generatedMutantID.contains(id))
+				return BinaryExpression.GREATEREQUAL;
+		}
+		if (operator != BinaryExpression.LESS) {
+			String id = newID + BinaryExpression.LESS;
+			if (!generatedMutantID.contains(id))
+				return BinaryExpression.LESS;
+		}
+		if (operator != BinaryExpression.LESSEQUAL) {
+			String id = newID + BinaryExpression.LESSEQUAL;
+			if (!generatedMutantID.contains(id))
+				return BinaryExpression.LESSEQUAL;
+		}
+		if (operator != BinaryExpression.EQUAL) {
+			String id = newID + BinaryExpression.EQUAL;
+			if (!generatedMutantID.contains(id))
+				return BinaryExpression.EQUAL;
+		}
+		if (operator != BinaryExpression.NOTEQUAL) {
+			String id = newID + BinaryExpression.NOTEQUAL;
+			if (!generatedMutantID.contains(id))
+				return BinaryExpression.NOTEQUAL;
+		}
+		if (operator != ROR.TRUE) {
+			String id = newID + ROR.TRUE;
+			if (!generatedMutantID.contains(id))
+				return ROR.TRUE;
+		}
+		if (operator != ROR.FALSE) {
+			String id = newID + ROR.FALSE;
+			if (!generatedMutantID.contains(id))
+				return ROR.FALSE;
+		}
+		assert (false);
+		return 0;
+	}
+
+	private int getNextMutantOpForPrimitive(String mutantID, int operator,
+			List<String> generatedMutantID, boolean isObject) {
+		String newID = mutantID + "_";
+		if (!isObject && operator != BinaryExpression.GREATER) {
+			String id = newID + BinaryExpression.GREATER;
+			if (!generatedMutantID.contains(id))
+				return BinaryExpression.GREATER;
+		}
+		if (!isObject && operator != BinaryExpression.GREATEREQUAL) {
+			String id = newID + BinaryExpression.GREATEREQUAL;
+			if (!generatedMutantID.contains(id))
+				return BinaryExpression.GREATEREQUAL;
+		}
+		if (!isObject && operator != BinaryExpression.LESS) {
+			String id = newID + BinaryExpression.LESS;
+			if (!generatedMutantID.contains(id))
+				return BinaryExpression.LESS;
+		}
+		if (!isObject && operator != BinaryExpression.LESSEQUAL) {
+			String id = newID + BinaryExpression.LESSEQUAL;
+			if (!generatedMutantID.contains(id))
+				return BinaryExpression.LESSEQUAL;
+		}
+		if (operator != BinaryExpression.EQUAL) {
+			String id = newID + BinaryExpression.EQUAL;
+			if (!generatedMutantID.contains(id))
+				return BinaryExpression.EQUAL;
+		}
+		if (operator != BinaryExpression.NOTEQUAL) {
+			String id = newID + BinaryExpression.NOTEQUAL;
+			if (!generatedMutantID.contains(id))
+				return BinaryExpression.NOTEQUAL;
+		}
+		if (operator != ROR.TRUE) {
+			String id = newID + ROR.TRUE;
+			if (!generatedMutantID.contains(id))
+				return ROR.TRUE;
+		}
+		if (operator != ROR.FALSE) {
+			String id = newID + ROR.FALSE;
+			if (!generatedMutantID.contains(id))
+				return ROR.FALSE;
+		}
+		assert (false);		
+		return 0;
+	}
+
+	private String getRORCode(int i) {
+		switch (i) {
+		case BinaryExpression.GREATER:
+			return ">";
+		case BinaryExpression.GREATEREQUAL:
+			return ">=";
+		case BinaryExpression.LESS:
+			return "<";
+		case BinaryExpression.LESSEQUAL:
+			return "<=";
+		case BinaryExpression.EQUAL:
+			return "==";
+		case BinaryExpression.NOTEQUAL:
+			return "!=";
+		}
+
+		assert (false);
+		return new String();
+	}
+}

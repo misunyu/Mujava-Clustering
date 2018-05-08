@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.0"?>
+<plugin>
+
+   <extension
+         point="org.eclipse.ui.editors">
+      <editor
+            class="mujava.plugin.editor.mujavaproject.MuJavaProjectFileEditor"
+            contributorClass="mujava.plugin.editor.mujavaproject.MuJavaProjectFileEditorContributor"
+            extensions="mjp"
+            icon="icons/types.gif"
+            id="mujava.plugin.editors.projectEditor"
+            name="Project Editor"/>
+      <editor
+            class="mujava.plugin.editor.mutantreport.ResultTableFileEditor"
+            contributorClass="mujava.plugin.editor.mutantreport.ResultTableFileEditorContributor"
+            default="false"
+            extensions="report"
+            icon="icons/abstract_co.gif"
+            id="mujava.plugin.editor.ResultEditor"
+            name="Result Viewer"/>
+   </extension>
+   <extension
+         point="org.eclipse.ui.newWizards">
+      <category
+            name="MuJava Wizards"
+            id="MuJavaWizards">
+      </category>
+      <wizard
+            category="MuJavaWizards"
+            class="mujava.plugin.wizards.MuJavaProjectGenerationWizard"
+            icon="icons/sample.gif"
+            id="mujava.plugin.wizards.NewProjectWizard"
+            name="New MuJava project">
+      </wizard>
+      <wizard
+            category="MuJavaWizards"
+            class="mujava.plugin.wizards.generation.MutantGenerationWizard"
+            icon="icons/sample.gif"
+            id="mujava.plugin.wizards.GenerateMutantsForMuJava"
+            name="Generate mutants for MuJava"/>
+      <wizard
+            category="MuJavaWizards"
+            class="mujava.plugin.wizards.GenerateTests"
+            icon="icons/sample.gif"
+            id="mujava.plugin.wizards.GenerateTests"
+            name="Generate tests"/>
+      <wizard
+            category="MuJavaWizards"
+            class="mujava.plugin.wizards.execution.TestExecutionWizard"
+            icon="icons/sample.gif"
+            id="mujava.plugin.wizards.GenerateExecutedReports"
+            name="Execute tests and Create the report including executed results"/>
+   </extension>
+   <extension
+         point="org.eclipse.ui.popupMenus">
+      <objectContribution
+            adaptable="false"
+            id="mujava.plugin.popupmenus.objectContribution"
+            objectClass="org.eclipse.core.resources.IResource">
+         <menu
+               id="mujava.plugin.popupmenus.menu"
+               label="MuJava"
+               path="addtions">
+            <separator
+                  name="additions">
+            </separator>
+            <groupMarker
+                  name="content">
+            </groupMarker>
+         </menu>
+         <action
+               class="mujava.plugin.actions.GenerateMutantsActionDelegate"
+               id="mujava.plugin.popupmenus.generate_action"
+               label="Generate Mutants"
+               menubarPath="mujava.plugin.popupmenus.menu/content">
+         </action>
+         <action
+               class="mujava.plugin.actions.RunMutantsActionDelegate"
+               id=" mujava.plugin.popupmenus.run_action"
+               label="Run Mutants"
+               menubarPath="mujava.plugin.popupmenus.menu/content">
+         </action>
+         <action
+               class="mujava.plugin.actions.GenerateReachTableActionDelegate"
+               id="mujava.plugin.popupmenus.reachtable_action"
+               label="Temp"
+               menubarPath="mujava.plugin.popupmenus.menu/content">
+         </action>
+      </objectContribution>
+   </extension>
+
+</plugin>

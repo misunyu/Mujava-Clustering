@@ -1,0 +1,64 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : JDC_Writer.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op;
+
+import java.io.IOException;
+
+import mujava.IMutantInfo;
+import mugamma.MutantCodeWriter;
+import openjava.ptree.ConstructorDeclaration;
+import openjava.ptree.ParseTree;
+import openjava.ptree.ParseTreeException;
+
+/**
+ * <p>
+ * Description:
+ * </p>
+ * <p>
+ * Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED
+ * </p>
+ * 
+ * @author Yu-Seung Ma
+ * @version 1.0
+ */
+
+public class JDC_Writer extends MutantCodeWriter {
+
+	ConstructorDeclaration mutant = null;
+
+	public void setMutant(ConstructorDeclaration mutant) {
+		this.mutant = mutant;
+	}
+
+	public JDC_Writer(IMutantInfo mutantFile) throws IOException {
+		super(mutantFile);
+	}
+
+
+	boolean eq(ParseTree p, ParseTree q) {
+		if (p == null && q == null)
+			return true;
+		if (p == null || q == null)
+			return false;
+		return (p.getObjectID() == q.getObjectID());
+	}
+
+	public void visit(ConstructorDeclaration p) throws ParseTreeException {
+		if (!eq(p, mutant)) {
+			super.visit(p);
+		} else {
+			super.mutantInfo.setChangeLocation(getLineNumber());
+			String log_str = p.getModifiers().toString() + " " + p.getName()
+					+ "(" + p.getParameters().toString() + ")";
+			super.mutantInfo.setChangeLog(removeNewline(log_str) + " is deleted");
+
+			writeTab();
+			out.println("// " + log_str + " { ... } ");
+			increaseLineNumber();
+		}
+	}
+}

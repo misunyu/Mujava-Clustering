@@ -1,0 +1,568 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : ABS_AOR_LCR_ROR_UOI.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op;
+
+import java.io.IOException;
+
+import org.eclipse.jdt.core.IJavaElement;
+
+import mujava.IMutantInfo;
+import mujava.MuJavaProject;
+import mujava.gen.GenericCodeWriter;
+import openjava.mop.FileEnvironment;
+import openjava.mop.OJClass;
+import openjava.mop.OJSystem;
+import openjava.ptree.AssignmentExpression;
+import openjava.ptree.BinaryExpression;
+import openjava.ptree.CaseGroup;
+import openjava.ptree.ClassDeclaration;
+import openjava.ptree.CompilationUnit;
+import openjava.ptree.Expression;
+import openjava.ptree.ExpressionStatement;
+import openjava.ptree.FieldDeclaration;
+import openjava.ptree.MethodCall;
+import openjava.ptree.Parameter;
+import openjava.ptree.ParseTreeException;
+import openjava.ptree.StatementList;
+import openjava.ptree.UnaryExpression;
+import openjava.ptree.Variable;
+import openjava.ptree.VariableDeclaration;
+
+/**
+ * <p>
+ * Description:
+ * </p>
+ * <p>
+ * Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED
+ * </p>
+ * 
+ * @author Yu-Seung Ma
+ * @version 1.0
+ */
+
+public class ABS_AOR_LCR_ROR_UOI extends mujava.op.util.Mutator {
+	boolean absFlag = true;
+
+	boolean aorFlag = true;
+
+	boolean lcrFlag = true;
+
+	boolean mutant_possible = true;
+
+	boolean rorFlag = true;
+
+	boolean uoiFlag = true;
+
+
+	private final int ABS_NEG = 0;
+	private final int ABS_ZERO = 1;
+	
+	private final int AOR = 3;
+	
+	private final int LCR = AOR + 10;
+
+	private final int LCR_UNARY = LCR + 20;
+	private final int ROR = LCR+1;
+	private final int UOI = ROR + 20;
+	
+
+	public ABS_AOR_LCR_ROR_UOI(MuJavaProject project, IJavaElement originalSourceFile,
+			FileEnvironment file_env, ClassDeclaration cdecl,
+			CompilationUnit comp_unit) {
+		super(file_env, comp_unit, project, originalSourceFile, "");
+	}
+
+	private void absMutantGen(BinaryExpression exp) {
+		String opName = this.getOperatorName();
+		this.setOperatorName("ABS");
+		outputToFile(exp, new Integer(ABS_ZERO));
+		outputToFile(exp, new Integer(ABS_NEG));
+		this.setOperatorName(opName);
+	}
+
+	private void absMutantGen(MethodCall exp) {
+		String opName = this.getOperatorName();
+		this.setOperatorName("ABS");
+		outputToFile(exp, new Integer(ABS_ZERO));
+		outputToFile(exp, new Integer(ABS_NEG));
+		this.setOperatorName(opName);
+	}
+
+	private void absMutantGen(Variable var) {
+		String opName = this.getOperatorName();
+		this.setOperatorName("ABS");
+		outputToFile(var, new Integer(ABS_ZERO));
+		outputToFile(var, new Integer(ABS_NEG));
+		this.setOperatorName(opName);
+	}
+
+	private void aorMutantGen(BinaryExpression exp, int op) {
+		String opName = this.getOperatorName();
+		this.setOperatorName("AOR");
+
+		if (op != BinaryExpression.TIMES) {
+			outputToFile(exp, BinaryExpression.TIMES + AOR);
+		}
+		if (op != BinaryExpression.DIVIDE) {
+			outputToFile(exp, BinaryExpression.DIVIDE + AOR);
+		}
+		if (op != BinaryExpression.MOD) {
+			outputToFile(exp, BinaryExpression.MOD + AOR);
+		}
+		if (op != BinaryExpression.PLUS) {
+			outputToFile(exp, BinaryExpression.PLUS + AOR);
+		}
+		if (op != BinaryExpression.MINUS) {
+			outputToFile(exp, BinaryExpression.MINUS + AOR);
+		}
+
+		this.setOperatorName(opName);
+	}
+
+
+	private void lcrMutantGen(BinaryExpression exp, int op) {
+		String opName = this.getOperatorName();
+		this.setOperatorName("LCR");
+		
+		if (op != BinaryExpression.LOGICAL_AND) {
+			outputToFile(exp, BinaryExpression.LOGICAL_AND + LCR);
+		}
+		if (op != BinaryExpression.LOGICAL_OR) {
+			outputToFile(exp, BinaryExpression.LOGICAL_OR + LCR);
+		}
+		if (op != BinaryExpression.XOR) {
+			outputToFile(exp, BinaryExpression.XOR + LCR);
+		}
+		this.setOperatorName(opName);
+	}
+
+	private void rorMutantGen(BinaryExpression exp, int op) {
+		String opName = this.getOperatorName();
+		this.setOperatorName("ROR");
+		
+		if (op != BinaryExpression.LESS) {
+			outputToFile(exp, BinaryExpression.LESS + ROR);
+		}
+		if (op != BinaryExpression.GREATER) {
+			outputToFile(exp, BinaryExpression.GREATER + ROR);
+		}
+		if (op != BinaryExpression.LESSEQUAL) {
+			outputToFile(exp, BinaryExpression.LESSEQUAL +ROR);
+		}
+		if (op != BinaryExpression.GREATEREQUAL) {
+			outputToFile(exp, BinaryExpression.GREATEREQUAL + ROR);
+		}
+		if (op != BinaryExpression.EQUAL) {
+			outputToFile(exp, BinaryExpression.EQUAL + ROR);
+		}
+		if (op != BinaryExpression.NOTEQUAL) {
+			outputToFile(exp, BinaryExpression.NOTEQUAL + ROR);
+		}
+		
+		this.setOperatorName(opName);
+	}
+
+	public void setABSFlag(boolean b) {
+		absFlag = b;
+	}
+
+	public void setAORFlag(boolean b) {
+		aorFlag = b;
+	}
+
+	public void setLCRFlag(boolean b) {
+		lcrFlag = b;
+	}
+
+	public void setRORFlag(boolean b) {
+		rorFlag = b;
+	}
+
+	public void setUOIFlag(boolean b) {
+		uoiFlag = b;
+	}
+
+	private void uoi_arithmetic_MutantGen(Variable exp) {
+		outputToFile(exp, new Integer(UnaryExpression.POST_DECREMENT + UOI));
+		outputToFile(exp, new Integer(UnaryExpression.POST_INCREMENT+UOI));
+		outputToFile(exp, new Integer(UnaryExpression.PRE_DECREMENT + UOI));
+		outputToFile(exp, new Integer(UnaryExpression.PRE_INCREMENT+UOI));
+	}
+
+	private void uoi_boolean_MutantGen(MethodCall exp) {
+		outputToFile(exp, new Integer(UnaryExpression.NOT + UOI));
+	}
+
+	private void uoi_boolean_MutantGen(Variable exp) {
+		outputToFile(exp, new Integer(UnaryExpression.NOT + UOI));
+	}
+	
+	public void visit(AssignmentExpression p) throws ParseTreeException {
+		// mutant_possible = false;
+		// Expression left = p.getLeft();
+		// super.visit( p );
+
+		// FieldAccess fldac = (FieldAccess) left;
+		// Expression refexpr = fldac.getReferenceExpr();
+		// TypeName reftype = fldac.getReferenceType();
+		mutant_possible = true;
+
+		Expression value = p.getRight();
+		/* custom version of visit() skipping the field */
+
+		Expression newp;
+		newp = this.evaluateDown(p);
+
+		if (newp != p) {
+			p.replace(newp);
+			newp.accept(this);
+			return;
+		}
+
+		value.accept(this);
+
+		newp = this.evaluateUp(p);
+		if (newp != p)
+			p.replace(newp);
+	}
+
+	public void visit(BinaryExpression p) throws ParseTreeException {
+
+		OJClass type = getType(p);
+		// arithmetic expression
+		// for ABS, UOI operator
+		if (type == OJSystem.INT || type == OJSystem.DOUBLE
+				|| type == OJSystem.FLOAT || type == OJSystem.LONG
+				|| type == OJSystem.SHORT) {
+			if (absFlag)
+				absMutantGen(p);
+		}
+
+		Expression lexpr = p.getLeft();
+		lexpr.accept(this);
+
+		int op_type = p.getOperator();
+
+		switch (op_type) {
+
+		// for AOR mutation operator
+		// 5 Arithmetic Operators : TIMES, DIVIDE, MOD, PLUS, MONUS
+		case BinaryExpression.TIMES:
+			if (aorFlag)
+				aorMutantGen(p, BinaryExpression.TIMES);
+			break;
+
+		case BinaryExpression.DIVIDE:
+			if (aorFlag)
+				aorMutantGen(p, BinaryExpression.DIVIDE);
+			break;
+
+		case BinaryExpression.MOD:
+			if (aorFlag)
+				aorMutantGen(p, BinaryExpression.MOD);
+			break;
+
+		case BinaryExpression.PLUS:
+			if (aorFlag)
+				aorMutantGen(p, BinaryExpression.PLUS);
+			break;
+
+		case BinaryExpression.MINUS:
+			if (aorFlag)
+				aorMutantGen(p, BinaryExpression.MINUS);
+			break;
+
+		// for ROR mutation operator
+		// 7 Relational Operators : LESS,GREATER,LESSEQUAL,GREATEREQUAL,
+		// EQUAL,NOTEQUAL
+		case BinaryExpression.LESS:
+			if (rorFlag)
+				rorMutantGen(p, BinaryExpression.LESS);
+			break;
+
+		case BinaryExpression.GREATER:
+			if (rorFlag)
+				rorMutantGen(p, BinaryExpression.GREATER);
+			break;
+
+		case BinaryExpression.LESSEQUAL:
+			if (rorFlag)
+				rorMutantGen(p, BinaryExpression.LESSEQUAL);
+			break;
+
+		case BinaryExpression.GREATEREQUAL:
+			if (rorFlag)
+				rorMutantGen(p, BinaryExpression.GREATEREQUAL);
+			break;
+
+		case BinaryExpression.EQUAL:
+			if (rorFlag)
+				rorMutantGen(p, BinaryExpression.EQUAL);
+			break;
+
+		case BinaryExpression.NOTEQUAL:
+			if (rorFlag)
+				rorMutantGen(p, BinaryExpression.NOTEQUAL);
+			break;
+
+		// for LCR mutation operator
+		// 3 Logical Operators : AND, OR, XOR
+		case BinaryExpression.LOGICAL_AND:
+			if (lcrFlag)
+				lcrMutantGen(p, BinaryExpression.LOGICAL_AND);
+			break;
+
+		case BinaryExpression.LOGICAL_OR:
+			if (lcrFlag)
+				lcrMutantGen(p, BinaryExpression.LOGICAL_OR);
+			break;
+
+		case BinaryExpression.XOR:
+			if (lcrFlag)
+				lcrMutantGen(p, BinaryExpression.XOR);
+			break;
+
+		}
+
+		Expression rexpr = p.getRight();
+		rexpr.accept(this);
+
+	}
+
+	public void visit(CaseGroup p) throws ParseTreeException {
+		mutant_possible = false;
+		super.visit(p);
+		mutant_possible = true;
+	}
+
+	public void visit(ExpressionStatement p) throws ParseTreeException {
+		Expression exp = p.getExpression();
+		if (exp instanceof MethodCall) {
+			mutant_possible = false;
+			super.visit(p);
+			mutant_possible = true;
+		} else {
+			super.visit(p);
+		}
+	}
+
+	public void visit(FieldDeclaration p) throws ParseTreeException {
+		mutant_possible = false;
+		super.visit(p);
+		mutant_possible = true;
+	}
+
+	public void visit(MethodCall p) throws ParseTreeException {
+		try {
+			OJClass type = getType(p);
+			if (mutant_possible) {
+				if (type == OJSystem.INT || type == OJSystem.DOUBLE
+						|| type == OJSystem.FLOAT || type == OJSystem.LONG
+						|| type == OJSystem.SHORT) {
+					if (absFlag)
+						absMutantGen(p);
+				} else if (type == OJSystem.BOOLEAN) {
+					if (uoiFlag)
+						uoi_boolean_MutantGen(p);
+				}
+			}
+
+			mutant_possible = true;
+			super.visit(p);
+		} catch (Exception e) {
+
+		}
+	}
+
+	public void visit(Parameter p) throws ParseTreeException {
+		mutant_possible = false;
+		super.visit(p);
+		mutant_possible = true;
+	}
+
+	public void visit(StatementList p) throws ParseTreeException {
+		mutant_possible = true;
+		super.visit(p);
+	}
+
+	public void visit(UnaryExpression p) throws ParseTreeException {
+		OJClass type = getType(p);
+		if (type == OJSystem.BOOLEAN) {
+			String opName = super.getOperatorName();
+			this.setOperatorName("LCR");
+			outputToFile(p);
+			this.setOperatorName(opName);
+		}
+
+		// --------------------------------------
+		mutant_possible = false;
+
+		Expression newp = this.evaluateDown(p);
+		if (newp != p) {
+			p.replace(newp);
+			return;
+		}
+		p.childrenAccept(this);
+		newp = this.evaluateUp(p);
+		if (newp != p)
+			p.replace(newp);
+
+		mutant_possible = true;
+	}
+
+	public void visit(Variable p) throws ParseTreeException {
+		OJClass type = getType(p);
+
+		if (mutant_possible) {
+			// arithmetic expression
+			// for ABS, UOI operator
+			if (type == OJSystem.INT || type == OJSystem.DOUBLE
+					|| type == OJSystem.FLOAT || type == OJSystem.LONG
+					|| type == OJSystem.SHORT) {
+				if (mutant_possible) {
+					if (absFlag)
+						absMutantGen(p);
+					if (uoiFlag)
+						uoi_arithmetic_MutantGen(p);
+				}
+			} else if (type == OJSystem.BOOLEAN) {
+				if (mutant_possible) {
+					if (uoiFlag)
+						uoi_boolean_MutantGen(p);
+				}
+			}
+		}
+
+		super.visit(p);
+	}
+
+	public void visit(VariableDeclaration p) throws ParseTreeException {
+		mutant_possible = false;
+		super.visit(p);
+		mutant_possible = true;
+	}
+
+	@Override
+	protected int getMutantType() {
+		return IMutantInfo.CLASS;
+	}
+
+	@Override
+	protected GenericCodeWriter getMutantCodeWriter(IMutantInfo mutantFile,
+			Object[] args) throws IOException {
+		if (args.length == 2) {
+			if (args[0] instanceof BinaryExpression
+					&& args[1] instanceof Integer) {
+				int type = ((Integer) args[1]).intValue();
+				BinaryExpression exp = (BinaryExpression) args[0];
+
+				switch (type) {
+				case ABS_NEG: {
+					ABS_Writer mutantWriter = new ABS_Writer(mutantFile);
+					mutantWriter.setNegativeFlag(exp);
+					return mutantWriter;
+				}
+				case ABS_ZERO: {
+					ABS_Writer mutantWriter = new ABS_Writer(mutantFile);
+					mutantWriter.setZeroFlag(exp);
+					return mutantWriter;
+				}
+				case AOR + BinaryExpression.TIMES:
+				case AOR + BinaryExpression.DIVIDE:
+				case AOR + BinaryExpression.MOD:
+				case AOR + BinaryExpression.PLUS:
+				case AOR + BinaryExpression.MINUS: {
+					AOR_Writer mutantWriter = new AOR_Writer(mutantFile);
+					mutantWriter.setMutant(exp, type - AOR);
+					return mutantWriter;
+				}
+				case LCR + BinaryExpression.LOGICAL_AND:
+				case LCR + BinaryExpression.LOGICAL_OR:
+				case LCR + BinaryExpression.XOR: {
+					LCR_Writer mutantWriter = new LCR_Writer(mutantFile);
+					mutantWriter.setMutant(exp, type - LCR);
+					return mutantWriter;
+				}
+				case ROR + BinaryExpression.LESS:
+				case ROR + BinaryExpression.GREATER:
+				case ROR + BinaryExpression.LESSEQUAL:
+				case ROR + BinaryExpression.GREATEREQUAL:
+				case ROR + BinaryExpression.EQUAL:
+				case ROR + BinaryExpression.NOTEQUAL: {
+					ROR_Writer mutantWriter = new ROR_Writer(mutantFile);
+					mutantWriter.setMutant(exp, type - ROR);
+					return mutantWriter;
+				}
+				}
+			} else if (args[0] instanceof Variable
+					&& args[1] instanceof Integer) {
+				int type = ((Integer) args[1]).intValue();
+				Variable var = (Variable) args[0];
+
+				switch (type) {
+				case ABS_NEG: {
+					ABS_Writer mutantWriter = new ABS_Writer(mutantFile);
+					mutantWriter.setNegativeFlag(var);
+					return mutantWriter;
+				}
+				case ABS_ZERO: {
+					ABS_Writer mutantWriter = new ABS_Writer(mutantFile);
+					mutantWriter.setZeroFlag(var);
+					return mutantWriter;
+				}
+				case UOI + UnaryExpression.NOT :
+				case UOI + UnaryExpression.PRE_DECREMENT :
+				case UOI + UnaryExpression.PRE_INCREMENT :
+				case UOI + UnaryExpression.POST_DECREMENT :
+				case UOI + UnaryExpression.POST_INCREMENT : {
+					UOI_Writer mutantWriter = new UOI_Writer(mutantFile);
+					mutantWriter.setMutant(var, type - UOI);
+					return mutantWriter;
+				}
+				}
+			} else if (args[0] instanceof MethodCall
+					&& args[1] instanceof Integer) {
+				int type = ((Integer) args[1]).intValue();
+				MethodCall methodCall = (MethodCall) args[0];
+
+				switch (type) {
+				case ABS_NEG: {
+					ABS_Writer mutantWriter = new ABS_Writer(mutantFile);
+					mutantWriter.setNegativeFlag(methodCall);
+					return mutantWriter;
+				}
+				case ABS_ZERO: {
+					ABS_Writer mutantWriter = new ABS_Writer(mutantFile);
+					mutantWriter.setZeroFlag(methodCall);
+					return mutantWriter;
+				}
+				case UOI + UnaryExpression.NOT : {
+					UOI_Writer mutantWriter = new UOI_Writer(mutantFile);
+					mutantWriter.setMutant(methodCall, type - UOI);
+					return mutantWriter;
+				}
+				}
+			} else if (args[0] instanceof UnaryExpression
+					&& args[1] instanceof Integer) {
+				int type = ((Integer) args[1]).intValue();
+				UnaryExpression exp = (UnaryExpression) args[0];
+				
+				switch (type) {
+				case LCR_UNARY  : { 
+					LCR_Writer mutantWriter = new LCR_Writer(mutantFile);
+					mutantWriter.setMutant(exp);
+					return mutantWriter;
+				}
+				}
+			}
+		}
+
+		assert (false);
+		return null;
+	}
+
+}

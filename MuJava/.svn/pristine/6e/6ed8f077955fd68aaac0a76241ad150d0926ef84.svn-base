@@ -1,0 +1,88 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : PMD_Writer.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op;
+
+import java.io.IOException;
+
+import mujava.IMutantInfo;
+import mugamma.MutantCodeWriter;
+import openjava.ptree.FieldDeclaration;
+import openjava.ptree.ParseTree;
+import openjava.ptree.ParseTreeException;
+import openjava.ptree.VariableDeclaration;
+
+/**
+ * <p>
+ * Description:
+ * </p>
+ * <p>
+ * Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED
+ * </p>
+ * 
+ * @author Yu-Seung Ma
+ * @version 1.0
+ */
+
+public class PMD_Writer extends MutantCodeWriter {
+
+	FieldDeclaration original_field = null;
+
+	FieldDeclaration mutant_field = null;
+
+	VariableDeclaration original_var = null;
+
+	VariableDeclaration mutant_var = null;
+
+	public void setMutant(FieldDeclaration original, FieldDeclaration mutant) {
+		this.original_field = original;
+		this.mutant_field = mutant;
+	}
+
+	public void setMutant(VariableDeclaration original,
+			VariableDeclaration mutant) {
+		this.original_var = original;
+		this.mutant_var = mutant;
+	}
+
+	public PMD_Writer(IMutantInfo mutantFile) throws IOException {
+		super(mutantFile);
+	}
+
+	boolean eq(ParseTree p, ParseTree q) {
+		if (p == null && q == null)
+			return true;
+		if (p == null || q == null)
+			return false;
+		return (p.getObjectID() == q.getObjectID());
+	}
+
+	public void visit(FieldDeclaration p) throws ParseTreeException {
+		if (eq(p, original_field)) {
+			// -------------------------------------------------------------
+			super.mutantInfo.setChangeLocation(getLineNumber());
+			visit(mutant_field);
+			super.mutantInfo.setChangeLog(removeNewline(original_field.toString() + " => "
+					+ mutant_field.toString()));
+			// -------------------------------------------------------------
+		} else {
+			super.visit(p);
+		}
+	}
+
+	public void visit(VariableDeclaration p) throws ParseTreeException {
+		if (eq(p, original_var)) {
+			// -------------------------------------------------------------
+			super.mutantInfo.setChangeLocation(getLineNumber());
+			visit(mutant_var);
+			super.mutantInfo.setChangeLog(removeNewline(original_var.toString() + " => "
+					+ mutant_var.toString()));
+			// -------------------------------------------------------------
+		} else {
+			super.visit(p);
+		}
+	}
+}

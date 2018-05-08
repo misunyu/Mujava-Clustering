@@ -1,0 +1,389 @@
+package mujava.gen.writer;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
+import kaist.selab.util.Helper;
+import kaist.selab.util.MuJavaLogger;
+import mujava.MuJavaMutantInfo;
+import mujava.MutantOperator;
+import mujava.gen.GenericCodeWriter;
+import mujava.op.util.ChangePoint;
+import openjava.mop.Environment;
+import openjava.mop.NoSuchMemberException;
+import openjava.mop.OJClass;
+import openjava.mop.OJMethod;
+import openjava.mop.OJSystem;
+import openjava.ptree.ArrayAccess;
+import openjava.ptree.ClassDeclaration;
+import openjava.ptree.ClassDeclarationList;
+import openjava.ptree.CompilationUnit;
+import openjava.ptree.Expression;
+import openjava.ptree.ExpressionList;
+import openjava.ptree.MemberDeclaration;
+import openjava.ptree.MethodCall;
+import openjava.ptree.MethodDeclaration;
+import openjava.ptree.ParseTreeException;
+import openjava.ptree.util.AnonymousClassEnvironment;
+import openjava.ptree.util.AnonymousMethodCall;
+
+public class MutantWriter extends GenericCodeWriter {
+
+	/**
+	 * All change points of the given target source file to be able to be
+	 * mutated by this writer
+	 */
+	public List<ChangePoint> changePoints = null;
+
+	protected ChangePoint currentChangePoint = null;
+	protected ClassDeclaration currentClassDeclaration = null;
+	protected MethodDeclaration currentMethod = Helper.OutOfMethod;
+
+	// default value
+	private int generationWay = MutantOperator.GEN_NORMAL;
+
+	/**
+	 * Generated Mutants
+	 */
+	public List<MuJavaMutantInfo> mujavaMutantInfos = null;
+
+	protected String mutantOperatorName;
+
+	private MethodDeclaration previousMethod = Helper.OutOfMethod;
+
+	/**
+	 * the size of change points mutated by this writer
+	 */
+	int sizeOfChangedPoint;
+
+	/**
+	 * An identifier to distinguish its own source file
+	 */
+	public int targetFileHashCode;
+
+	protected MutantWriter(Environment env, String name, int genWay)
+			throws IOException {
+		super(env);
+		this.setMutantOperatorName(name);
+		mujavaMutantInfos = new ArrayList<MuJavaMutantInfo>();
+		currentClassDeclaration = Helper.OutOfClass;
+		generationWay = genWay;
+	}
+
+	public void emptyLineNumber() {
+		setLineNumber(1);
+	}
+
+	public void emptyMutantInfo() {
+		this.mujavaMutantInfos.clear();
+	}
+
+	@Override
+	public MemberDeclaration evaluateDown(MethodDeclaration ptree)
+			throws ParseTreeException {
+		if (!(ptree.getName().equals("main"))) {
+			previousMethod = currentMethod;
+			currentMethod = ptree;
+		}
+		return super.evaluateDown(ptree);
+	}
+
+	@Override
+	public MemberDeclaration evaluateUp(MethodDeclaration ptree)
+			throws ParseTreeException {
+		if (!(ptree.getName().equals("main"))) {
+			currentMethod = previousMethod;
+		}
+		return super.evaluateUp(ptree);
+	}
+
+	/*
+	 * @pre leftType != null && rightType != null
+	 */
+	protected OJClass getBiggerClass(OJClass leftType, OJClass rightType) {
+		if (leftType.equals(rightType))
+			return leftType;
+
+		if (leftType.equals(OJSystem.DOUBLE)
+				|| rightType.equals(OJSystem.DOUBLE))
+			if (leftType.equals(OJSystem.FLOAT)
+					|| rightType.equals(OJSystem.FLOAT)
+					|| leftType.equals(OJSystem.INT)
+					|| rightType.equals(OJSystem.INT))
+				return OJSystem.DOUBLE;
+
+		if (leftType.equals(OJSystem.LONG) || rightType.equals(OJSystem.LONG))
+			if (leftType.equals(OJSystem.INT) || rightType.equals(OJSystem.INT)
+					|| leftType.equals(OJSystem.SHORT)
+					|| rightType.equals(OJSystem.SHORT))
+				return OJSystem.LONG;
+
+		if (!leftType.isPrimitive() || !rightType.isPrimitive())
+			return null;
+
+		assert (false) : ": " + leftType.toString() + ", "
+				+ rightType.toString();
+		return null;
+	}
+
+	/**
+	 * Return the corresponding ChangePoint object if the given Expression
+	 * target is in the change points registered in this writer object.
+	 * Otherwise, it returns null object.
+	 * 
+	 * @param target
+	 *            parsing expression
+	 * @return corresponding change point object
+	 */
+	protected ChangePoint getChangePoint(Expression target) {
+		for (int i = 0; i < changePoints.size(); i++) {
+			ChangePoint cp = changePoints.get(i);
+			if (cp.isSamePoint(target, currentMethod))
+				return cp;
+		}
+
+		return null;
+	}
+
+	public Iterator<ChangePoint> getChangePointsIterator() {
+		if (changePoints == null)
+			return new ArrayList<ChangePoint>().iterator();
+
+		return changePoints.iterator();
+	}
+
+	public ChangePoint getCurrentChangePoint() {
+		return currentChangePoint;
+	}
+
+	public int getGenerationWay() {
+		return generationWay;
+	}
+
+	/**
+	 * Return the corresponding ChangePoint object if the given Expression
+	 * target is in the change points registered in this writer object.
+	 * Otherwise, it returns null object.
+	 * 
+	 * @param target
+	 *            parsing expression
+	 * @return corresponding change point object
+	 */
+	public List<MuJavaMutantInfo> getMutantInfos() {
+		return mujavaMutantInfos;
+	}
+
+	public String getMutationOperatorName() {
+		return mutantOperatorName;
+	}
+
+	public int getSizeOfLastAppliedChangePoint() {
+		return sizeOfChangedPoint;
+	}
+
+	public int getTargetFileHashCode() {
+		return targetFileHashCode;
+	}
+
+	protected OJClass getType(Expression p) throws ParseTreeException {
+		OJClass result = null;
+
+		if (p instanceof MethodCall) {
+
+			MethodCall m = (MethodCall) p;
+
+			try {
+				OJClass type = getMethodReturnType(m);
+				if (type != null) {
+					return type;
+				}
+			} catch (NoSuchMemberException e) {
+				e.printStackTrace();
+			}
+
+		} else {
+
+			try {
+				OJClass type = p.getType(getEnvironment());
+
+				if (type != null) {
+					return type;
+				}
+			} catch (Exception e) {
+				MuJavaLogger.getLogger().error(
+						"[Unhandled Exception in MutantWriter.getType()]");
+				e.printStackTrace();
+			}
+		}
+
+		MuJavaLogger.getLogger().error("cannot resolve the type of expression");
+		MuJavaLogger.getLogger().error(p.getClass() + " : " + p);
+		MuJavaLogger.getLogger().error(getEnvironment());
+
+		if (p instanceof ArrayAccess) {
+			ArrayAccess aaexpr = (ArrayAccess) p;
+			Expression refexpr = aaexpr.getReferenceExpr();
+			OJClass refexprtype = null;
+			OJClass comptype = null;
+			try {
+				refexprtype = refexpr.getType(getEnvironment());
+				comptype = refexprtype.getComponentType();
+			} catch (Exception ex) {
+			}
+			MuJavaLogger.getLogger().error(
+					refexpr + " : " + refexprtype + " : " + comptype);
+		}
+
+		return result;
+	}
+
+	OJClass getAnonymousMethodReturnType(MethodCall methodCall) {
+
+		AnonymousMethodCall amc = new AnonymousMethodCall(methodCall);
+
+		ExpressionList args = amc.getArguments();
+
+		OJClass[] paramClasses = new OJClass[args.size()];
+		for (int i = 0; i < paramClasses.length; i++) {
+			Expression argExp = args.get(i);
+
+			try {
+				paramClasses[i] = argExp.getType(getEnvironment());
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+
+		AnonymousClassEnvironment anonyEnv = (AnonymousClassEnvironment) super
+				.getParent(getEnvironment());
+		OJMethod method = anonyEnv.lookupMethod(amc.getName(), paramClasses);
+
+		OJClass methodType = method.getReturnType();
+		if (methodType != null) {
+			return methodType;
+		}
+
+		try {
+			Environment targetEnv = getParent(anonyEnv);
+
+			return amc.getType(targetEnv, paramClasses);
+
+		} catch (Exception e) {
+			MuJavaLogger.getLogger().error(
+					"[First Level in CommonMutator.getType()]");
+			e.printStackTrace();
+		}
+
+		return null;
+	}
+
+	OJClass getMethodReturnType(MethodCall methodCall)
+			throws NoSuchMemberException {
+
+		// There are two cases in the MethodCall,
+		// one is a general MethodCall located in normal class.
+		// The other is a MethodCall located in anonymous class,
+		// OpenJava does not support to find some methods from those yet.
+		String className = getEnvironment().currentClassName();
+		if ("<anonymous class>".equalsIgnoreCase(className)) {
+
+			return getAnonymousMethodReturnType(methodCall);
+
+		} else { // General Method
+
+			Environment targetEnv = getEnvironment();
+
+			try {
+				return methodCall.getType(targetEnv);
+			} catch (Exception e) {
+				MuJavaLogger
+						.getLogger()
+						.error("[Unhandled Exception in AbstractChangePointSeeker.getMethodReturnType()]");
+				e.printStackTrace();
+			}
+
+		}
+
+		throw new NoSuchMemberException(methodCall.toString());
+	}
+
+	/**
+	 * Increase the counter indicates the number of visited change points.
+	 * Whenever an mutated code is writen, this method should be called.
+	 */
+	protected void increaseSizeOfChangedPoints() {
+		this.sizeOfChangedPoint++;
+	}
+
+	public void resetSizeOfLastAppliedChangePoint() {
+		sizeOfChangedPoint = 0;
+	}
+
+	public void setChangePoints(List<ChangePoint> mutantPoints) {
+		this.changePoints = mutantPoints;
+	}
+
+	public void setCurrentChangePoint(ChangePoint currentChangePoint) {
+		this.currentChangePoint = currentChangePoint;
+	}
+
+	public void setMutantOperatorName(String string) {
+		this.mutantOperatorName = string;
+	}
+
+	public void setTargetFileHashCode(int targetFileHashCode) {
+		this.targetFileHashCode = targetFileHashCode;
+	}
+
+	@Override
+	public void visit(ClassDeclaration p) throws ParseTreeException {
+		ClassDeclaration temp = currentClassDeclaration;
+		currentClassDeclaration = p;
+		super.visit(p);
+		currentClassDeclaration = temp;
+	}
+
+	public void visit(CompilationUnit p) throws ParseTreeException {
+		out.println("/** This is mutant program.");
+		increaseLineNumber();
+		out.println(" * @author swkim & ysma");
+		increaseLineNumber();
+		out.println(" */");
+		increaseLineNumber();
+
+		super.evaluateDown(p);
+
+		/* package statement */
+		String qn = p.getPackage();
+		if (qn != null) {
+			out.print("package " + qn + ";");
+			out.println();
+			increaseLineNumber();
+
+			out.println();
+			increaseLineNumber();
+			out.println();
+			increaseLineNumber();
+		}
+
+		String[] islst = p.getDeclaredImports();
+		if (islst.length != 0) {
+			for (int i = 0; i < islst.length; ++i) {
+				out.println("import " + islst[i] + ";");
+				increaseLineNumber();
+			}
+			out.println();
+			increaseLineNumber();
+			out.println();
+			increaseLineNumber();
+		}
+
+		/* type declaration list */
+		ClassDeclarationList tdlst = p.getClassDeclarations();
+		tdlst.accept(this);
+
+		super.evaluateUp(p);
+	}
+}

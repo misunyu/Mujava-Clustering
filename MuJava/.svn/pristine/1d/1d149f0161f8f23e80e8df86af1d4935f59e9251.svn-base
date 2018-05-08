@@ -1,0 +1,180 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : PCC.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op;
+
+import java.io.IOException;
+import java.util.Vector;
+
+import mujava.IMutantInfo;
+import mujava.MutantManager;
+import mujava.MutantTable;
+import mujava.MutationSystem;
+import mujava.MuJavaProject;
+import mujava.ProjectManager;
+import org.eclipse.jdt.core.IJavaElement;
+import mujava.gen.GenericCodeWriter;
+import mujava.util.InheritanceINFO;
+import openjava.mop.FileEnvironment;
+import openjava.ptree.CastExpression;
+import openjava.ptree.ClassDeclaration;
+import openjava.ptree.CompilationUnit;
+import openjava.ptree.Expression;
+import openjava.ptree.ExpressionList;
+import openjava.ptree.MethodCall;
+import openjava.ptree.ParseTreeException;
+
+/**
+ * <p>Description: </p>
+ * <p>Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED </p>
+ * @author Yu-Seung Ma
+ * @version 1.0
+ */
+
+public class PCC extends mujava.op.util.TypeCastMutator {
+
+	String afterCastType = "";
+
+	String beforeCastType = "";
+
+	public PCC(MuJavaProject project, IJavaElement originalSourceFile, FileEnvironment file_env,
+			ClassDeclaration cdecl, CompilationUnit comp_unit) {
+		super(file_env, comp_unit, project, originalSourceFile, "PCC");
+
+	}
+
+	void generateUpMutants(CastExpression p, InheritanceINFO info) {
+		InheritanceINFO temp = info.getParent();
+		if (temp != null) {
+			if (beforeCastType.equals(temp.getClassName()))
+				return;
+			if (hasHidingVariableOrOverridingMethod(temp.getClassName(),
+					beforeCastType)) {
+				outputToFile(p, temp.getClassName());
+			}
+			generateUpMutants(p, temp);
+		}
+	}
+
+	void generateDownMutants(CastExpression p, InheritanceINFO info) {
+		Vector v = info.getChilds();
+		for (int i = 0; i < v.size(); i++) {
+			InheritanceINFO temp = (InheritanceINFO) v.get(i);
+			if (afterCastType.equals(temp.getClassName()))
+				return;
+			if (beforeCastType.equals(temp.getClassName()))
+				return;
+			if (hasHidingVariableOrOverridingMethod(temp.getClassName(),
+					beforeCastType)) {
+				outputToFile(p, temp.getClassName());
+			}
+			generateDownMutants(p, temp);
+		}
+	}
+
+	void generateUpMutants2(CastExpression p, InheritanceINFO info,
+			String method_name, Class[] pars) {
+		InheritanceINFO temp = info.getParent();
+		if (temp != null) {
+			if (beforeCastType.equals(temp.getClassName()))
+				return;
+			if (isNonAbstractOverridingMethodCall(temp.getClassName(),
+					beforeCastType, method_name, pars)) {
+				outputToFile(p, temp.getClassName());
+			}
+			generateUpMutants(p, temp);
+		}
+	}
+
+	void generateDownMutants2(CastExpression p, InheritanceINFO info,
+			String method_name, Class[] pars) {
+		Vector v = info.getChilds();
+		for (int i = 0; i < v.size(); i++) {
+			InheritanceINFO temp = (InheritanceINFO) v.get(i);
+			if (afterCastType.equals(temp.getClassName()))
+				return;
+			if (beforeCastType.equals(temp.getClassName()))
+				return;
+			if (isNonAbstractOverridingMethodCall(temp.getClassName(),
+					beforeCastType, method_name, pars)) {
+				outputToFile(p, temp.getClassName());
+			}
+			generateDownMutants(p, temp);
+		}
+	}
+
+	void generateMutants(CastExpression p, InheritanceINFO info) {
+		if (hasHidingVariableOrOverridingMethod(info.getClassName(),
+				beforeCastType)) {
+			outputToFile(p, info.getClassName());
+		}
+		generateUpMutants(p, info);
+		generateDownMutants(p, info);
+	}
+
+	public void visit(CastExpression p) throws ParseTreeException {
+		afterCastType = p.getTypeSpecifier().getName();
+		beforeCastType = getType(p.getExpression()).getName();
+		if (afterCastType.equals(beforeCastType))
+			return;
+
+		InheritanceINFO inf = MutationSystem.getInheritanceInfo(beforeCastType);
+		if (inf != null) {
+			if (currentMethodCall != null) {
+				try {
+					String method_name = currentMethodCall.getName();
+					Class[] par_type = getParameterTypes(currentMethodCall);
+
+					generateUpMutants2(p, inf, method_name, par_type);
+					generateDownMutants2(p, inf, method_name, par_type);
+				} catch (Exception e) {
+				}
+			} else {
+				generateUpMutants(p, inf);
+				generateDownMutants(p, inf);
+			}
+		}
+	}
+
+	public void visit(MethodCall p) throws ParseTreeException {
+		Expression newp = this.evaluateDown(p);
+		if (newp != p) {
+			p.replace(newp);
+			return;
+		}
+		Expression ref = p.getReferenceExpr();
+		String method_name = p.getName();
+		if (ref != null) {
+			currentMethodCall = p;
+			ref.accept(this);
+			currentMethodCall = null;
+		}
+		ExpressionList list = p.getArguments();
+		if (list != null)
+			list.accept(this);
+	}
+
+	@Override
+	protected int getMutantType() {
+		return IMutantInfo.CLASS;
+	}
+
+	@Override
+	protected GenericCodeWriter getMutantCodeWriter(IMutantInfo mutantFile,
+			Object[] args) throws IOException {
+
+		if (args.length == 2 && args[0] instanceof MethodCall
+				&& args[1] instanceof Integer) {
+			PCC_Writer mutantWriter = new PCC_Writer(mutantFile);
+			mutantWriter.setMutant((CastExpression) args[0], (String) args[1]);
+
+			return mutantWriter;
+		}
+
+		assert(false);
+		return null;
+	}
+}

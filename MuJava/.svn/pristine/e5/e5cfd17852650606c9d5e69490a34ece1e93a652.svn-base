@@ -1,0 +1,131 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : IHI_Writer.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op;
+
+import java.io.IOException;
+
+import mujava.IMutantInfo;
+import mujava.MuJavaMutantInfo;
+import mugamma.MutantCodeWriter;
+import openjava.ptree.ClassDeclaration;
+import openjava.ptree.FieldDeclaration;
+import openjava.ptree.MemberDeclarationList;
+import openjava.ptree.ModifierList;
+import openjava.ptree.ParseTreeException;
+import openjava.ptree.TypeName;
+
+/**
+ * <p>
+ * Description: Generate IHI mutants
+ * </p>
+ * <p>
+ * Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED
+ * </p>
+ * 
+ * @author Yu-Seung Ma
+ * @version 1.0
+ */
+
+public class IHI_Writer extends MutantCodeWriter {
+
+	FieldDeclaration mutantDecl = null;
+
+	public void setMutant(FieldDeclaration mutant) {
+		this.mutantDecl = mutant;
+	}
+
+	public IHI_Writer(IMutantInfo mutantFile) throws IOException {
+		super(mutantFile);
+	}
+
+	public void visit(ClassDeclaration p) throws ParseTreeException {
+		MuJavaMutantInfo info = (MuJavaMutantInfo)super.mutantInfo;
+		String className = info.getWrapperClass();
+		className = toSimpleClassName(className);
+		
+		if (p.getName().equals(className)) {
+
+			writeTab();
+
+			/* ModifierList */
+			ModifierList modifs = p.getModifiers();
+			if (modifs != null) {
+				modifs.accept(this);
+				if (!modifs.isEmptyAsRegular())
+					out.print(" ");
+			}
+
+			/* "class" */
+			if (p.isInterface()) {
+				out.print("interface ");
+			} else {
+				out.print("class ");
+			}
+
+			String mutantClassName = info.getMutantClass();
+			mutantClassName = toSimpleClassName(mutantClassName);
+			out.print(mutantClassName);
+
+			/* "extends" TypeName */
+			TypeName[] zuper = p.getBaseclasses();
+			if (zuper.length != 0) {
+				out.print(" extends ");
+				zuper[0].accept(this);
+				for (int i = 1; i < zuper.length; ++i) {
+					out.print(", ");
+					zuper[i].accept(this);
+				}
+			} else {
+			}
+
+			/* "implements" ClassTypeList */
+			TypeName[] impl = p.getInterfaces();
+			if (impl.length != 0) {
+				out.print(" implements ");
+				impl[0].accept(this);
+				for (int i = 1; i < impl.length; ++i) {
+					out.print(", ");
+					impl[i].accept(this);
+				}
+			} else {
+			}
+
+			out.println();
+			increaseLineNumber();
+
+			/* MemberDeclarationList */
+			MemberDeclarationList classbody = p.getBody();
+			writeTab();
+			out.println("{");
+			increaseLineNumber();
+			if (classbody.isEmpty()) {
+				classbody.accept(this);
+			} else {
+				out.println();
+				increaseLineNumber();
+				pushNest();
+				// -------------------------
+				super.mutantInfo.setChangeLocation(getLineNumber());
+				String logStr = mutantDecl.toString() + " is added.";
+				super.mutantInfo.setChangeLog(removeNewline(logStr));
+				// -------------------------
+				mutantDecl.accept(this);
+				out.println();
+				increaseLineNumber();
+				classbody.accept(this);
+				popNest();
+				out.println();
+				increaseLineNumber();
+			}
+			writeTab();
+			out.print("}");
+
+			out.println();
+			increaseLineNumber();
+		}
+	}
+}

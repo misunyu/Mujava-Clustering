@@ -1,0 +1,70 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : EFD.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op.exception;
+
+import java.io.IOException;
+
+import mujava.IMutantInfo;
+import mujava.MutantManager;
+import mujava.MutantTable;
+import mujava.MuJavaProject;
+import mujava.ProjectManager;
+import org.eclipse.jdt.core.IJavaElement;
+import mujava.gen.GenericCodeWriter;
+import mujava.op.basic.AODS_Writer;
+import openjava.mop.FileEnvironment;
+import openjava.ptree.CatchList;
+import openjava.ptree.ClassDeclaration;
+import openjava.ptree.CompilationUnit;
+import openjava.ptree.ParseTreeException;
+import openjava.ptree.StatementList;
+import openjava.ptree.TryStatement;
+import openjava.ptree.UnaryExpression;
+
+/**
+ * <p>Description: </p>
+ * <p>Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED </p>
+ * @author Yu-Seung Ma
+ * @version 1.0
+ */
+
+public class EFD extends mujava.op.util.Mutator {
+	public EFD(FileEnvironment file_env, ClassDeclaration cdecl,
+			CompilationUnit comp_unit, IJavaElement srcFile) {
+		super(file_env, comp_unit, null, srcFile, "EFD");
+
+	}
+
+	public void visit(TryStatement p) throws ParseTreeException {
+		CatchList catch_list = p.getCatchList();
+		StatementList finstmts = p.getFinallyBody();
+		if ((!catch_list.isEmpty()) && (!finstmts.isEmpty())) {
+			outputToFile(p);
+		}
+	}
+
+	
+
+	@Override
+	protected int getMutantType() {
+		return IMutantInfo.EXCEPTIONAL;
+	}
+
+	@Override
+	protected GenericCodeWriter getMutantCodeWriter(IMutantInfo mutantFile,
+			Object[] args) throws IOException {
+		if(args.length == 1 && args[0] instanceof TryStatement) {
+			EFD_Writer mutantWriter = new EFD_Writer(mutantFile);
+			mutantWriter.setMutant((TryStatement) args[0]);
+			
+			return  mutantWriter;
+		}
+		
+		assert(false);
+		return null;
+	}
+}

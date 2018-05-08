@@ -1,0 +1,70 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : JID.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op;
+
+import java.io.IOException;
+
+import mujava.IMutantInfo;
+import mujava.MutantManager;
+import mujava.MutantTable;
+import mujava.MuJavaProject;
+import mujava.ProjectManager;
+import org.eclipse.jdt.core.IJavaElement;
+import mujava.gen.GenericCodeWriter;
+import openjava.mop.FileEnvironment;
+import openjava.ptree.ClassDeclaration;
+import openjava.ptree.CompilationUnit;
+import openjava.ptree.FieldDeclaration;
+import openjava.ptree.ModifierList;
+import openjava.ptree.ParseTreeException;
+import openjava.ptree.VariableInitializer;
+
+/**
+ * <p>
+ * Description:
+ * </p>
+ * <p>
+ * Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED
+ * </p>
+ * 
+ * @author Yu-Seung Ma
+ * @version 1.0
+ */
+
+public class JID extends mujava.op.util.Mutator {
+
+	public JID(MuJavaProject project, IJavaElement originalSourceFile, FileEnvironment file_env,
+			ClassDeclaration cdecl, CompilationUnit comp_unit) {
+		super(file_env, comp_unit, project, originalSourceFile, "JID");
+	}
+
+	public void visit(FieldDeclaration p) throws ParseTreeException {
+		VariableInitializer initializer = p.getInitializer();
+		if (p.getModifiers().contains(ModifierList.FINAL))
+			return;
+		if (initializer != null)
+			outputToFile(p);
+	}
+
+	@Override
+	protected int getMutantType() {
+		return IMutantInfo.CLASS;
+	}
+
+	@Override
+	protected GenericCodeWriter getMutantCodeWriter(IMutantInfo mutantFile,
+			Object[] args) throws IOException {
+		if (args.length == 1 && args[0] instanceof FieldDeclaration) {
+			JID_Writer mutantWriter = new JID_Writer(mutantFile);
+			mutantWriter.setMutant((FieldDeclaration) args[0]);
+			return mutantWriter;
+		}
+
+		assert (false);
+		return null;
+	}
+}

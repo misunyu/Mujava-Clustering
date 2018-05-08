@@ -1,0 +1,91 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : JID_Writer.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op;
+
+import java.io.IOException;
+
+import mujava.IMutantInfo;
+import mugamma.MutantCodeWriter;
+import openjava.ptree.FieldDeclaration;
+import openjava.ptree.ModifierList;
+import openjava.ptree.ParseTree;
+import openjava.ptree.ParseTreeException;
+import openjava.ptree.TypeName;
+import openjava.ptree.VariableInitializer;
+
+/**
+ * <p>Description: </p>
+ * <p>Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED </p>
+ * @author Yu-Seung Ma
+ * @version 1.0
+  */ 
+
+public class JID_Writer extends MutantCodeWriter
+{
+
+    FieldDeclaration mutant = null;
+
+    public void setMutant(FieldDeclaration mutant){
+      this.mutant = mutant;
+    }
+
+    public JID_Writer(IMutantInfo mutantFile) throws IOException {
+		super(mutantFile);
+	}
+
+	boolean eq(ParseTree p, ParseTree q ) {
+		if(p == null && q == null)  return true;
+		if(p == null || q == null)  return false;
+		return (p.getObjectID() == q.getObjectID());
+    	}
+    public void visit( FieldDeclaration p )
+	throws ParseTreeException
+    {
+         writeTab();
+        /*ModifierList*/
+        ModifierList modifs = p.getModifiers();
+        if (modifs != null) {
+            modifs.accept( this );
+            if (! modifs.isEmptyAsRegular())  out.print( " " );
+        }
+
+        /*TypeName*/
+        TypeName ts = p.getTypeSpecifier();
+        ts.accept(this);
+
+        out.print(" ");
+
+        /*Variable*/
+        String variable = p.getVariable();
+        out.print(variable);
+
+	if(eq(p, mutant)){
+
+		super.mutantInfo.setChangeLocation(getLineNumber());
+          String temp = mutant.getModifiers().toString()
+		    +" " + mutant.getTypeSpecifier().toString()
+		    +" " + mutant.getVariable();
+          String mutant_str = temp + p.getInitializer().toString();
+	  String log_str = temp+";";
+	  super.mutantInfo.setChangeLog(removeNewline(mutant_str +" => "+log_str));
+
+	// -------------------------------------------------------------
+	}else{
+          /*"=" VariableInitializer*/
+          VariableInitializer initializer = p.getInitializer();
+          if (initializer != null) {
+              out.print(" = ");
+              initializer.accept(this);
+          }
+	}
+        /*";"*/
+        out.print(";");
+
+        out.println(); increaseLineNumber();
+    }
+
+}

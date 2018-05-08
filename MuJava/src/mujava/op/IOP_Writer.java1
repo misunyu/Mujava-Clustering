@@ -1,0 +1,126 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : IOP_Writer.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op;
+
+import java.io.IOException;
+
+import mujava.IMutantInfo;
+import mugamma.MutantCodeWriter;
+import openjava.ptree.MethodDeclaration;
+import openjava.ptree.ParseTree;
+import openjava.ptree.ParseTreeException;
+import openjava.ptree.Statement;
+import openjava.ptree.StatementList;
+
+/**
+ * <p>
+ * Description:
+ * </p>
+ * <p>
+ * Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED
+ * </p>
+ * 
+ * @author Yu-Seung Ma
+ * @version 1.0
+ */
+
+public class IOP_Writer extends MutantCodeWriter implements IOP_Helper {
+
+	int index, mod;
+
+	boolean flag = false;
+
+	MethodDeclaration mutant_method = null;
+
+	StatementList mutant_stmt_list = null;
+
+	Statement mutant_stmt = null;
+
+	public void setMutant(StatementList stmt_list, int index, int mod) {
+		// this.mutant_method = method;
+		this.mutant_stmt_list = stmt_list;
+		this.index = index;
+		this.mod = mod;
+	}
+
+	public IOP_Writer(IMutantInfo mutantFile) throws IOException {
+		super(mutantFile);
+	}
+
+	boolean eq(ParseTree p, ParseTree q) {
+		if (p == null && q == null)
+			return true;
+		if (p == null || q == null)
+			return false;
+		return (p.getObjectID() == q.getObjectID());
+	}
+
+	public void visit(StatementList p) throws ParseTreeException {
+		if (eq(p, mutant_stmt_list)) {
+			for (int i = 0; i < p.size(); i++) {
+				switch (mod) {
+				case FIRST:
+					super.mutantInfo.setChangeLocation(getLineNumber());
+					super.mutantInfo.setChangeLog("Overridden method call at first line.");
+					visit(p.get(index));
+					for (i = 0; i < p.size(); i++) {
+						if (i != index)
+							visit(p.get(i));
+					}
+					break;
+
+				case LAST:
+					for (i = 0; i < p.size(); i++) {
+						if (i != index)
+							visit(p.get(i));
+					}
+					super.mutantInfo.setChangeLocation(getLineNumber());
+					super.mutantInfo.setChangeLog("Overridden method call at last line.");
+					visit(p.get(index));
+					break;
+
+				case UP:
+					for (i = 0; i < p.size(); i++) {
+						if (i == (index - 1)) {
+							super.mutantInfo.setChangeLocation(getLineNumber());
+							super.mutantInfo.setChangeLog("Overridden method call at one line up.");
+							visit(p.get(index));
+						} else if (i == index) {
+							visit(p.get(index - 1));
+						} else {
+							visit(p.get(i));
+						}
+					}
+					break;
+
+				case DOWN:
+					super.mutantInfo.setChangeLocation(getLineNumber()+ index + 1);
+					super.mutantInfo.setChangeLog("Overridden method call at one line down.");
+					for (i = 0; i < p.size(); i++) {
+						if (i == (index)) {
+							visit(p.get(index + 1));
+						} else if (i == index + 1) {
+							super.mutantInfo.setChangeLocation(getLineNumber());
+							super.mutantInfo.setChangeLog("Overridden method call at one line up.");
+							visit(p.get(index));
+						} else {
+							visit(p.get(i));
+						}
+					}
+					break;
+				}
+			}
+		} else {
+			super.visit(p);
+		}
+	}
+
+	/*
+	 * public void visit( MethodDeclaration p ) throws ParseTreeException {
+	 * if(p.eq(mutant)){ flag = true; } super.visit(p); flag = false; }
+	 */
+}

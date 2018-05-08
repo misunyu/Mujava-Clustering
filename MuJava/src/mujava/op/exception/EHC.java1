@@ -1,0 +1,95 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : EHC.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op.exception;
+
+import java.io.IOException;
+
+import mujava.IMutantInfo;
+import mujava.MutantManager;
+import mujava.MutantTable;
+import mujava.MuJavaProject;
+import mujava.ProjectManager;
+import org.eclipse.jdt.core.IJavaElement;
+import mujava.gen.GenericCodeWriter;
+import mujava.op.basic.AOIS_Writer;
+import mujava.util.InheritanceINFO;
+import openjava.mop.FileEnvironment;
+import openjava.ptree.CatchBlock;
+import openjava.ptree.CatchList;
+import openjava.ptree.ClassDeclaration;
+import openjava.ptree.CompilationUnit;
+import openjava.ptree.FieldAccess;
+import openjava.ptree.ParseTreeException;
+import openjava.ptree.StatementList;
+import openjava.ptree.TryStatement;
+import openjava.ptree.Variable;
+
+/**
+ * <p>Description: </p>
+ * <p>Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED </p>
+ * @author Yu-Seung Ma
+ * @version 1.0
+ */
+
+public class EHC extends mujava.op.util.Mutator {
+	public EHC(IJavaElement origianlSourceFile, FileEnvironment file_env,
+			ClassDeclaration cdecl, CompilationUnit comp_unit) {
+		super(file_env, comp_unit, null, origianlSourceFile, "EHC");
+	}
+
+	public void visit(TryStatement p) throws ParseTreeException {
+		CatchList catchlist = p.getCatchList();
+		if (!catchlist.isEmpty()) {
+			int num = catchlist.size();
+			if (num == 1) {
+				StatementList finstmts = p.getFinallyBody();
+				if (!finstmts.isEmpty()) {
+					generateEHC(catchlist.get(0), catchlist.get(0)
+							.getParameter().getTypeSpecifier().getName());
+				}
+			} else {
+				for (int i = 0; i < num; i++) {
+					generateEHC(catchlist.get(i), catchlist.get(i)
+							.getParameter().getTypeSpecifier().getName());
+				}
+
+			}
+		}
+	}
+
+	public void generateEHC(CatchBlock p, String e_name) {
+		InheritanceINFO inf = mujava.MutationSystem.getInheritanceInfo(e_name);
+		if (inf == null)
+			return;
+		InheritanceINFO parent = inf.getParent();
+		if (parent != null) {
+			String parent_name = parent.getClassName();
+			outputToFile(p, parent_name);
+			generateEHC(p, parent_name);
+		}
+	}
+
+
+	@Override
+	protected int getMutantType() {
+		return IMutantInfo.EXCEPTIONAL;
+	}
+
+	protected GenericCodeWriter getMutantCodeWriter(IMutantInfo mutantFile,
+			Object[] args) throws IOException {
+		if (args.length == 2) {
+			EHC_Writer mutantWriter = new EHC_Writer(mutantFile);
+			if (args[0] instanceof CatchBlock && args[1] instanceof String) {
+				mutantWriter.setMutant((CatchBlock)args[0], (String)args[1]);
+				return mutantWriter;
+			}
+		}
+
+		assert (false);
+		return null;
+	}
+}

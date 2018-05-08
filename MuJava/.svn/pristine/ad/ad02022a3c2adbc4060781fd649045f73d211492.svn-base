@@ -1,0 +1,81 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : IPC_Writer.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op;
+
+import java.io.IOException;
+
+import mujava.IMutantInfo;
+import mugamma.MutantCodeWriter;
+import openjava.ptree.ConstructorInvocation;
+import openjava.ptree.Expression;
+import openjava.ptree.ExpressionList;
+import openjava.ptree.ParseTree;
+import openjava.ptree.ParseTreeException;
+
+/**
+ * <p>
+ * Description:
+ * </p>
+ * <p>
+ * Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED
+ * </p>
+ * 
+ * @author Yu-Seung Ma
+ * @version 1.0
+ */
+
+public class IPC_Writer extends MutantCodeWriter {
+
+	ConstructorInvocation mutant = null;
+
+	public void setMutant(ConstructorInvocation mutant) {
+		this.mutant = mutant;
+	}
+
+	public IPC_Writer(IMutantInfo mutantFile) throws IOException {
+		super(mutantFile);
+	}
+
+
+	boolean eq(ParseTree p, ParseTree q) {
+		if (p == null && q == null)
+			return true;
+		if (p == null || q == null)
+			return false;
+		return (p.getObjectID() == q.getObjectID());
+	}
+
+	public void visit(ConstructorInvocation p) throws ParseTreeException {
+		if (eq(p, mutant)) {
+			super.mutantInfo.setChangeLocation(getLineNumber());
+			writeTab();
+			out.println("// " + p.toString());
+			increaseLineNumber();
+			super.mutantInfo.setChangeLog(removeNewline(p.toString() + " is deleted"));
+		} else {
+			writeTab();
+			if (p.isSelfInvocation()) {
+				out.print("this");
+			} else {
+				Expression enclosing = p.getEnclosing();
+				if (enclosing != null) {
+					enclosing.accept(this);
+					out.print(" . ");
+				}
+				out.print("super");
+			}
+
+			ExpressionList exprs = p.getArguments();
+			writeArguments(exprs);
+
+			out.print(";");
+
+			out.println();
+			increaseLineNumber();
+		}
+	}
+}

@@ -1,0 +1,66 @@
+////////////////////////////////////////////////////////////////////////////
+// Module : IPC.java
+// Author : Ma, Yu-Seung
+// COPYRIGHT 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED.
+////////////////////////////////////////////////////////////////////////////
+
+package mujava.op;
+
+import java.io.IOException;
+
+import mujava.IMutantInfo;
+import mujava.MutantManager;
+import mujava.MutantTable;
+import mujava.MuJavaProject;
+import mujava.ProjectManager;
+import org.eclipse.jdt.core.IJavaElement;
+import mujava.gen.GenericCodeWriter;
+import openjava.mop.FileEnvironment;
+import openjava.ptree.ClassDeclaration;
+import openjava.ptree.CompilationUnit;
+import openjava.ptree.ConstructorInvocation;
+import openjava.ptree.MethodCall;
+import openjava.ptree.ParseTreeException;
+
+/**
+ * <p>Description: </p>
+ * <p>Copyright: Copyright (c) 2005 by Yu-Seung Ma, ALL RIGHTS RESERVED </p>
+ * @author Yu-Seung Ma
+ * @version 1.0
+ */
+
+public class IPC extends mujava.op.util.Mutator {
+	// ClassDeclaration my_class;
+	public IPC(MuJavaProject project, IJavaElement originalSourceFile, FileEnvironment file_env,
+			ClassDeclaration cdecl, CompilationUnit comp_unit) {
+		super(file_env, comp_unit, project, originalSourceFile, "IPC");
+		//my_class = cdecl;
+	}
+
+	public void visit(ConstructorInvocation p) throws ParseTreeException {
+		if (!p.isSelfInvocation()) {
+			if (p.getArguments().size() > 0) {
+				outputToFile(p);
+			}
+		}
+	}
+
+	@Override
+	protected int getMutantType() {
+		return IMutantInfo.CLASS;
+	}
+
+	@Override
+	protected GenericCodeWriter getMutantCodeWriter(IMutantInfo mutantFile,
+			Object[] args) throws IOException {
+		if (args.length == 1 && args[0] instanceof ConstructorInvocation) {
+			IPC_Writer mutantWriter = new IPC_Writer(mutantFile);
+			mutantWriter.setMutant((ConstructorInvocation) args[0]);
+
+			return mutantWriter;
+		}
+
+		assert (false);
+		return null;
+	}
+}
